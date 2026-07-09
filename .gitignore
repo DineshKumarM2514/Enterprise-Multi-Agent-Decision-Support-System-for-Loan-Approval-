@@ -24,3 +24,15 @@ yarn-error.log*
 
 # Logs
 *.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Runtime data (prototype)
+prototype/db/*.db
+prototype/db/*.sqlite3
