@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Multi-Agent Decision Support System — Loan Approval Platform</title>
+<meta name="description" content="Enterprise Multi-Agent Decision Support System for Loan Approval — design report: architecture, schema, guardrails, security, MLOps, scaling, and business case.">
+
+<style>
+  :root{
+    --teal:#2FB8A6; --blue:#3E7CB1; --warn:#E0A526; --critical:#E2604F;
+    --bg:#EEF2F6; --bg-panel:#FFFFFF; --bg-panel-2:#E3E9F0; --bg-code:#E7ECF2;
+    --text:#16202E; --text-dim:#516079; --line:rgba(22,32,46,.15); --accent:var(--blue);
+    --a-orch:#5B7FA6; --a-doc:#2E9E93; --a-credit:#B98A2E; --a-risk:#BD5A41; --a-dec:#7460A0; --a-human:#AD4F6C;
+    --cat-ui:#4E9A6E; --cat-ui-fill:#4E9A6E26; --cat-svc:#3E7CB1; --cat-svc-fill:#3E7CB126;
+    --cat-data:#BD5A4A; --cat-data-fill:#BD5A4A26; --cat-infra:#1B2434; --cat-infra-text:#F3F6FB;
+    --cat-warn-fill:#E0A52622; --note-bg:#FBE8A6; --note-border:#C9A03D; --note-text:#5B4A16; --note-fold:#E9D183;
+    --font-display:"Avenir Next","Century Gothic","Segoe UI",sans-serif;
+    --font-body:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --font-mono:"Cascadia Code","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0A1120; --bg-panel:#111A2B; --bg-panel-2:#17233A; --bg-code:#0E1729;
+      --text:#E7ECF4; --text-dim:#93A2BC; --line:rgba(148,163,196,.2); --accent:var(--teal);
+      --note-bg:#3A3018; --note-border:#6B5A2A; --note-text:#E8D9A0; --note-fold:#4E4020; }
+  }
+  :root[data-theme="dark"]{ --bg:#0A1120; --bg-panel:#111A2B; --bg-panel-2:#17233A; --bg-code:#0E1729;
+    --text:#E7ECF4; --text-dim:#93A2BC; --line:rgba(148,163,196,.2); --accent:var(--teal);
+    --note-bg:#3A3018; --note-border:#6B5A2A; --note-text:#E8D9A0; --note-fold:#4E4020; }
+  :root[data-theme="light"]{ --bg:#EEF2F6; --bg-panel:#FFFFFF; --bg-panel-2:#E3E9F0; --bg-code:#E7ECF2;
+    --text:#16202E; --text-dim:#516079; --line:rgba(22,32,46,.15); --accent:var(--blue);
+    --note-bg:#FBE8A6; --note-border:#C9A03D; --note-text:#5B4A16; --note-fold:#E9D183; }
+
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.7;font-size:16.5px;}
+  ::selection{background:var(--accent);color:var(--bg-panel);}
+  a{color:var(--accent);}
+  h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;color:var(--text);letter-spacing:.01em;}
+  code,.mono{font-family:var(--font-mono);}
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim);}
+
+  .page{display:grid;grid-template-columns:220px minmax(0,1fr);gap:0;max-width:1040px;margin:0 auto;padding:0 20px;}
+  @media (max-width:900px){ .page{grid-template-columns:1fr;} .toc{position:static !important;} }
+
+  .toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 18px 34px 4px;}
+  .toc-title{font-family:var(--font-display);font-weight:700;font-size:.95rem;margin-bottom:2px;}
+  .toc-sub{font-family:var(--font-mono);font-size:.68rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;display:block;}
+  .toc ol{list-style:none;margin:0;padding:0;counter-reset:toc;border-left:1px solid var(--line);}
+  .toc li{counter-increment:toc;}
+  .toc a{display:block;padding:6px 0 6px 16px;margin-left:-1px;border-left:1px solid transparent;color:var(--text-dim);text-decoration:none;font-size:.82rem;line-height:1.35;}
+  .toc a:hover{color:var(--text);border-left-color:var(--accent);}
+  .toc a::before{content:counter(toc) "  ";font-family:var(--font-mono);color:var(--accent);}
+
+  main{min-width:0;padding:48px 12px 120px 40px;border-left:1px solid var(--line);}
+  @media (max-width:900px){ main{border-left:none;padding-left:12px;} }
+
+  .cover{padding-bottom:38px;margin-bottom:44px;border-bottom:1px solid var(--line);}
+  .tagrow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+  .tag{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line);border-radius:3px;color:var(--text-dim);}
+  .cover h1{font-size:2.3rem;line-height:1.15;margin:0 0 14px;}
+  .cover p.lede{font-size:1.08rem;color:var(--text-dim);margin:0;}
+
+  section{margin-bottom:58px;scroll-margin-top:24px;}
+  section > .eyebrow{display:block;margin-bottom:6px;}
+  section > h2{font-size:1.55rem;margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+  h3{font-size:1.05rem;margin:30px 0 12px;}
+  h4{font-size:.92rem;margin:20px 0 8px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono);font-weight:600;}
+  p{margin:0 0 14px;}
+  ul,ol.plain{padding-left:1.2em;margin:0 0 14px;}
+  li{margin-bottom:6px;}
+  strong{color:var(--text);}
+
+  .panel{background:var(--bg-panel);border:1px solid var(--line);border-radius:8px;padding:22px 24px;margin:18px 0;}
+  .scrollbox{overflow-x:auto;}
+
+  table{border-collapse:collapse;width:100%;font-size:.88rem;table-layout:fixed;}
+  table caption{text-align:left;font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  th,td{text-align:left;padding:13px 18px 13px 0;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:var(--font-display);font-weight:700;color:var(--text-dim);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;}
+  tbody tr:last-child td{border-bottom:none;}
+  td .mono{font-size:.83em;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  pre{background:var(--bg-code);border:1px solid var(--line);border-radius:6px;padding:16px 18px;overflow-x:auto;font-family:var(--font-mono);font-size:.8rem;line-height:1.6;color:var(--text);}
+  code.inline{background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.85em;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin:14px 0 4px;font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+
+  .diagram-wrap{background:var(--bg-panel);border:1px solid var(--line);border-radius:10px;padding:22px 22px 20px;margin:20px -8px;}
+  .diagram-wrap.full{margin:20px 0;}
+  .diagram-title{font-family:var(--font-display);font-weight:700;font-size:1rem;margin:0 0 4px;}
+  .diagram-cap{font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);margin-top:12px;}
+  svg .n-title{font-family:var(--font-display);font-weight:700;fill:var(--text);font-size:13px;}
+  svg .n-sub{font-family:var(--font-mono);fill:var(--text-dim);font-size:10.5px;}
+  svg .n-rect{fill:var(--bg-panel-2);stroke:var(--line);stroke-width:1.1;}
+  svg .n-infra{fill:var(--cat-infra);stroke:var(--cat-infra);}
+  svg .n-infra .n-title, svg .n-infra .n-sub, svg text.t-infra{fill:var(--cat-infra-text) !important;}
+  svg .n-ui{fill:var(--cat-ui-fill);stroke:var(--cat-ui);}
+  svg .n-data{fill:var(--cat-data-fill);stroke:var(--cat-data);}
+  svg .n-svc{fill:var(--cat-svc-fill);stroke:var(--cat-svc);}
+  svg .zone-ui{fill:var(--cat-ui-fill);stroke:var(--cat-ui);stroke-width:1.2;}
+  svg .zone-infra{fill:var(--cat-infra);opacity:.06;stroke:var(--cat-infra);stroke-width:1.2;}
+  svg .zone-svc{fill:var(--cat-svc-fill);stroke:var(--cat-svc);stroke-width:1.2;}
+  svg .zone-data{fill:var(--cat-data-fill);stroke:var(--cat-data);stroke-width:1.2;}
+  svg .zone-warn{fill:var(--cat-warn-fill);stroke:var(--warn);stroke-width:1.2;}
+  svg .note-rect{fill:var(--note-bg);stroke:var(--note-border);stroke-width:1;}
+  svg .note-fold{fill:var(--note-fold);}
+  svg .note-text{font-family:var(--font-mono);fill:var(--note-text);font-size:9.5px;}
+  svg .zone-label{font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.04em;fill:var(--text);}
+  svg .pill{fill:var(--bg-panel);stroke:var(--line);}
+  svg .pill-text{font-family:var(--font-mono);font-size:10px;fill:var(--text-dim);}
+  svg .lbl{font-family:var(--font-mono);fill:var(--text-dim);font-size:10.5px;}
+  svg .step-lbl{font-family:var(--font-mono);fill:var(--bg-panel);font-size:12px;font-weight:700;}
+  svg .edge{stroke:var(--text-dim);stroke-width:1.4;fill:none;}
+  svg .edge-a{stroke:var(--accent);stroke-width:1.8;fill:none;}
+  svg .edge-w{stroke:var(--warn);stroke-width:1.8;fill:none;stroke-dasharray:4 3;}
+  svg .edge-c{stroke:var(--critical);stroke-width:1.8;fill:none;stroke-dasharray:4 3;}
+  svg text{font-size:12.5px;}
+  .diagram-legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin:14px 2px 0;font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);}
+  .diagram-legend span{display:inline-flex;align-items:center;gap:7px;}
+  .diagram-legend i{width:12px;height:12px;border-radius:3px;display:inline-block;}
+
+  .callout{border-left:3px solid var(--accent);background:var(--bg-panel);border-radius:0 6px 6px 0;padding:14px 18px;margin:18px 0;}
+  .callout p{margin:0;color:var(--text-dim);font-size:.94rem;}
+  .callout strong{color:var(--text);}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr;}}
+  .stat{background:var(--bg-panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
+  .stat .v{font-family:var(--font-display);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;}
+  .stat .l{font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-top:2px;}
+  .stat.hero{grid-column:span 2;}
+  .stat.hero .v{font-size:2.1rem;}
+  @media (max-width:640px){.stat.hero{grid-column:span 1;}}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media (max-width:800px){.grid3{grid-template-columns:1fr;}}
+  .pricing-card{background:var(--bg-panel);border:1px solid var(--line);border-radius:10px;padding:22px 22px 20px;}
+  .pricing-card.tier-hi{border-color:var(--accent);}
+  .pricing-card .tier{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px;}
+  .pricing-card h4{margin:0 0 10px;font-size:1.02rem;color:var(--text);text-transform:none;letter-spacing:0;font-family:var(--font-display);font-weight:700;}
+  .pricing-card .price{font-family:var(--font-display);font-weight:800;font-size:1.5rem;margin-bottom:10px;}
+  .pricing-card .price span{font-family:var(--font-mono);font-size:.72rem;font-weight:400;color:var(--text-dim);}
+  .pricing-card p{font-size:.86rem;color:var(--text-dim);margin:0;}
+
+  .barchart{margin:18px 0;}
+  .barrow{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:12px;margin-bottom:12px;}
+  .barrow .blabel{font-family:var(--font-mono);font-size:.78rem;color:var(--text-dim);}
+  .bartrack{background:var(--bg-panel-2);border-radius:5px;height:22px;overflow:hidden;}
+  .barfill{height:100%;border-radius:5px 0 0 5px;}
+  .barfill.pos{background:var(--accent);}
+  .barfill.neg{background:var(--critical);}
+  .barrow .bval{font-family:var(--font-mono);font-size:.82rem;text-align:right;font-variant-numeric:tabular-nums;}
+
+  .econ-bar{display:flex;height:46px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin:14px 0 8px;}
+  .econ-seg{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.78rem;color:var(--bg-panel);white-space:nowrap;}
+  .econ-seg.cogs{background:var(--critical);}
+  .econ-seg.profit{background:var(--accent);}
+
+  .phase{display:grid;grid-template-columns:110px 1fr;gap:4px 18px;padding:14px 0;border-bottom:1px solid var(--line);}
+  .phase:last-child{border-bottom:none;}
+  .phase .ph{font-family:var(--font-mono);color:var(--accent);font-size:.8rem;padding-top:2px;}
+  .phase h4{margin:0 0 4px;}
+  .phase p{margin:0;font-size:.92rem;}
+
+  footer.end{margin-top:24px;padding-top:24px;border-top:1px solid var(--line);color:var(--text-dim);font-family:var(--font-mono);font-size:.72rem;}
+
+  .contact{margin-top:70px;padding:40px 36px;text-align:center;background:var(--bg-panel);border:1px solid var(--line);border-radius:10px;}
+  .contact h3{margin:10px 0 8px;font-size:1.3rem;}
+  .contact p{margin:0 auto;color:var(--text-dim);max-width:52ch;}
+  .contact-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:26px auto 0;max-width:640px;text-align:left;}
+  .contact-form label{display:block;font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:6px;}
+  .contact-form input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;color:var(--text);font-family:var(--font-body);font-size:.92rem;}
+  .contact-form input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .contact-actions{grid-column:1/-1;display:flex;justify-content:center;margin-top:4px;}
+  .contact button.send{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.03em;background:var(--accent);color:var(--bg-panel);border:none;border-radius:6px;padding:11px 26px;cursor:pointer;}
+  .contact button.send:hover{opacity:.88;}
+  .contact .or{margin-top:22px;font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);}
+  .contact a.mail{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-size:.95rem;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:10px 20px;text-decoration:none;}
+  .contact a.mail:hover{border-color:var(--accent);color:var(--accent);}
+  @media (max-width:640px){.contact-form{grid-template-columns:1fr;}}
+
+  @media print{
+    :root{ --bg:#FFFFFF; --bg-panel:#FFFFFF; --bg-panel-2:#F1F3F6; --bg-code:#F1F3F6;
+      --text:#16202E; --text-dim:#48566B; --line:#D8DEE7; --accent:var(--blue); }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
+    body{font-size:12.5px;}
+    .page{display:block;max-width:none;padding:0;}
+    .toc{display:none;}
+    main{border-left:none;padding:0;}
+    section{margin-bottom:26px;}
+    .diagram-wrap,.panel,.stat,table,.phase,pre,.contact{break-inside:avoid;page-break-inside:avoid;}
+    section>h2{break-after:avoid;page-break-after:avoid;}
+    h3{break-after:avoid;page-break-after:avoid;}
+    a{color:var(--text);text-decoration:none;}
+    .cover{page-break-after:avoid;}
+  }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <nav class="toc">
+    <div class="toc-title">Loan Approval&nbsp;— MAS</div>
+    <span class="toc-sub">Report Contents</span>
+    <ol>
+      <li><a href="#s1">Executive Summary</a></li>
+      <li><a href="#s2">Business Need &amp; Problem</a></li>
+      <li><a href="#s3">Solution Overview</a></li>
+      <li><a href="#s4">System Architecture</a></li>
+      <li><a href="#s5">Per-Agent Design</a></li>
+      <li><a href="#s6">Data Design &amp; Schema</a></li>
+      <li><a href="#s7">Tech Stack</a></li>
+      <li><a href="#s8">Orchestration Layer</a></li>
+      <li><a href="#s9">Guardrails</a></li>
+      <li><a href="#s10">Security &amp; Privacy</a></li>
+      <li><a href="#s11">MLOps / DevAgentOps</a></li>
+      <li><a href="#s12">Deployment &amp; Infra</a></li>
+      <li><a href="#s13">Scaling to 1M</a></li>
+      <li><a href="#s14">Testing &amp; Evaluation</a></li>
+      <li><a href="#s15">Risks &amp; Mitigations</a></li>
+      <li><a href="#s16">Roadmap</a></li>
+      <li><a href="#s17">Appendix</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="cover">
+      <div class="tagrow">
+        <span class="tag">Multi-Agent System</span>
+        <span class="tag">LangGraph</span>
+        <span class="tag">Ollama · Open-Source LLMs</span>
+        <span class="tag">Enterprise Lending</span>
+      </div>
+      <h1>Enterprise Multi-Agent Decision Support System for Loan Approval</h1>
+      <p class="lede">A design report: six specialised agents — orchestrator, document verification, credit assessment, risk assessment, loan decision, and human review — coordinated by LangGraph, served on self-hosted open-source models via Ollama, built to run in production at a scale of 1M applications a year.</p>
+    </header>
+
+    <section id="s1">
+      <span class="eyebrow">01</span>
+      <h2>Executive Summary</h2>
+      <p>Manual underwriting today is five people, an inbox, and no shared rubric. This report proposes an <strong>enterprise multi-agent decision-support system</strong> — five specialist agents plus one orchestrator, mirroring the real underwriting team, coordinated by LangGraph, served on self-hosted open-source models via Ollama. Humans stay in the loop for every low-confidence or flagged case; the agents just remove the repetitive 80%.</p>
+      <div class="grid2">
+        <div class="stat"><div class="v">&lt; 5 min</div><div class="l">Target time-to-decision, straight-through cases</div></div>
+        <div class="stat"><div class="v">100%</div><div class="l">Decisions with a full evidence &amp; reasoning trace</div></div>
+        <div class="stat"><div class="v">0</div><div class="l">Applicant PII sent to a third-party model API</div></div>
+        <div class="stat"><div class="v">1,000,000</div><div class="l">Applications / year — target scale</div></div>
+      </div>
+    </section>
+
+    <section id="s2">
+      <span class="eyebrow">02</span>
+      <h2>Business Need &amp; Problem Statement</h2>
+
+      <h3>2.1 &nbsp;Where the current process breaks down</h3>
+      <ul>
+        <li><strong>Latency</strong> — 3–5 people, 3–7 days, even with clean paperwork.</li>
+        <li><strong>Inconsistency</strong> — no shared rubric; verdicts vary by reviewer.</li>
+        <li><strong>Thin auditability</strong> — "why" means calling the underwriter.</li>
+        <li><strong>Fraud &amp; cost</strong> — manual cross-checks miss what structured checks catch, and burn hours on obvious cases.</li>
+      </ul>
+
+      <h3>2.2 &nbsp;Business objectives &amp; success metrics</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:16%"><col style="width:38%"><col style="width:20%"><col style="width:26%"></colgroup>
+        <thead><tr><th>Objective</th><th>Metric</th><th>Baseline (manual)</th><th>Target (agentic)</th></tr></thead>
+        <tbody>
+          <tr><td>Faster decisions</td><td>Median time-to-decision</td><td class="num">3–7 days</td><td class="num">&lt; 5 min (STP), &lt; 4 hrs (escalated)</td></tr>
+          <tr><td>Reduce manual load</td><td>Straight-through processing (STP) rate</td><td class="num">~0%</td><td class="num">70–80%</td></tr>
+          <tr><td>Hold decision quality</td><td>Agreement rate: agent decision vs. senior underwriter, on audit sample</td><td class="num">n/a</td><td class="num">&gt; 95%</td></tr>
+          <tr><td>Contain risk</td><td>False-approval rate (defaults within 12mo attributable to bad decision)</td><td class="num">baseline X%</td><td class="num">&le; baseline</td></tr>
+          <tr><td>Full auditability</td><td>Decisions with complete evidence + reasoning trace</td><td class="num">~0%</td><td class="num">100%</td></tr>
+          <tr><td>Lower cost</td><td>Fully-loaded cost per application</td><td class="num">₹300–400 (manual)</td><td class="num">~₹50 (≈85–90%↓) — §2.9</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>2.3 &nbsp;Why multi-agent, not one large agent</h3>
+      <p>Underwriting is four disciplines — document forensics, credit interpretation, risk modelling, policy decisioning — not one skill wearing four hats. One monolithic agent conflates them:</p>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:46%"><col style="width:54%"></colgroup>
+        <thead><tr><th>Failure mode of a single agent</th><th>How separation into specialist agents fixes it</th></tr></thead>
+        <tbody>
+          <tr><td>Context overload — one giant prompt mixing OCR text, bureau JSON, policy rules, and reasoning instructions degrades reliability.</td><td>Each agent gets a narrow, well-scoped context: only what it needs to do its one job.</td></tr>
+          <tr><td>No accountability — if the final decision is wrong, which reasoning step caused it?</td><td>Every stage emits its own structured, evidence-cited output — the faulty step is directly visible in the trace.</td></tr>
+          <tr><td>Guardrails must be generic, or the whole prompt gets one blunt filter.</td><td>Guardrails are targeted per agent (e.g. numeric-bounds checks only matter for risk/credit, forgery signals only for documents).</td></tr>
+          <tr><td>No natural seam to insert a human — either everything is manual or nothing is.</td><td>The orchestrator can route <em>just one stage's</em> output to a human without re-running or blocking the rest.</td></tr>
+          <tr><td>Cannot scale or upgrade one capability independently.</td><td>Each agent is its own service — the credit agent can move to a bigger model or scale out without touching the others.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="callout"><p><strong>Framing:</strong> the agent boundaries were chosen to mirror the org chart of a real underwriting team, not the other way around — that's what makes the escalation logic and the audit trail legible to compliance and to human reviewers who will work alongside the system.</p></div>
+<p>The technical design above exists to serve this: faster decisions win customers, and the unit economics below are what makes the platform worth building as a product, not just a pilot.</p>
+
+      <h3>2.4 &nbsp;Why this, why now</h3>
+      <div class="grid3">
+        <div class="panel"><strong>Speed wins the customer.</strong><p style="margin:6px 0 0;color:var(--text-dim);font-size:.9rem">A bank that approves in minutes beats one that takes days — every time.</p></div>
+        <div class="panel"><strong>Scale without headcount.</strong><p style="margin:6px 0 0;color:var(--text-dim);font-size:.9rem">Loan volume grows exponentially; the agent fleet scales with it, not with hiring.</p></div>
+        <div class="panel"><strong>Sharper fraud &amp; risk detection.</strong><p style="margin:6px 0 0;color:var(--text-dim);font-size:.9rem">Specialist agents catch structured anomalies a generalist reviewer misses.</p></div>
+      </div>
+
+      <h3>2.5 &nbsp;Market opportunity</h3>
+      <div class="grid2">
+        <div class="stat"><div class="v">$1.96B → $5.71B</div><div class="l">AI in financial services, 2026 → 2034</div></div>
+        <div class="stat"><div class="v">14.3%</div><div class="l">CAGR over that period</div></div>
+        <div class="stat"><div class="v">40–60%</div><div class="l">Fewer false-positive fraud flags with specialist agents</div></div>
+        <div class="stat"><div class="v">+20–30%</div><div class="l">More true fraud caught, same period</div></div>
+      </div>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 560 200" width="100%" role="img" aria-label="Market size bar chart, 1.96 billion dollars in 2026 growing to 5.71 billion dollars in 2034">
+          <defs><marker id="mkt-arrow" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <line x1="100" y1="170" x2="520" y2="170" stroke="var(--line)"/>
+          <rect x="140" y="122" width="110" height="48" rx="3" fill="var(--accent)"/>
+          <rect x="380" y="30" width="110" height="140" rx="3" fill="var(--accent)"/>
+          <text x="195" y="112" text-anchor="middle" class="n-title">$1.96B</text>
+          <text x="435" y="20" text-anchor="middle" class="n-title">$5.71B</text>
+          <text x="195" y="188" text-anchor="middle" class="lbl">2026</text>
+          <text x="435" y="188" text-anchor="middle" class="lbl">2034</text>
+          <line x1="255" y1="95" x2="375" y2="65" class="edge" marker-end="url(#mkt-arrow)"/>
+          <text x="315" y="80" text-anchor="middle" class="lbl">CAGR 14.3%</text>
+        </svg>
+        <div class="diagram-cap">Global AI-in-financial-services market, 2026 → 2034.</div>
+      </div>
+
+      <h3>2.6 &nbsp;ROI at a glance</h3>
+      <div class="grid2">
+        <div class="stat"><div class="v">55–70%</div><div class="l">Cut in processing time (matches the &lt;5min STP target in §2.2)</div></div>
+        <div class="stat"><div class="v">$1 Trillion</div><div class="l">McKinsey estimate: value AI layers could unlock annually, global banking</div></div>
+        <div class="stat"><div class="v">₹250–350</div><div class="l">Direct OpEx savings per application vs. manual review</div></div>
+        <div class="stat"><div class="v">92.8%</div><div class="l">Modelled gross margin at 20K applications/month — §2.9</div></div>
+      </div>
+
+      <h3>2.7 &nbsp;Problems it solves</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:22%"><col style="width:34%"><col style="width:44%"></colgroup>
+        <thead><tr><th>Problem</th><th>Why it happens today</th><th>How this platform solves it</th></tr></thead>
+        <tbody>
+          <tr><td><strong>"Thin file" applicants</strong></td><td>No prior loans → no score → traditional software auto-rejects graduates, immigrants, small rural businesses</td><td>Document Verification reads alternative data — bank statements, rent history, utility bills, GST filings (§5.2) — opening up an underserved, viable borrower segment</td></tr>
+          <tr><td><strong>Human bias / inconsistency</strong></td><td>Two officers, same borderline file, two different moods → two different verdicts</td><td>Loan Decision applies the same weighted, policy-checked logic every time (§5.5) — mathematically and textually consistent, no mood involved</td></tr>
+          <tr><td><strong>Fraudulent documents</strong></td><td>Altered bank statements, inflated salary PDFs, forged tax filings</td><td>Document Verification cross-checks figures across sources and flags structural anomalies chronologically, not just at face value (Fig. 13)</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>2.8 &nbsp;Monetization model</h3>
+      <p>Three layers: pay-per-decision usage, a base retainer that flattens seasonal volume swings, and one-time professional services for legacy integration.</p>
+      <div class="grid3">
+        <div class="pricing-card">
+          <div class="tier">Tier 1 — High-Volume Retail</div>
+          <h4>Personal / auto / micro-agri loans</h4>
+          <div class="price">₹40–60 <span>/ application</span></div>
+          <p>Standard OCR ingestion, bureau API pull, basic DTI calculation.</p>
+        </div>
+        <div class="pricing-card tier-hi">
+          <div class="tier">Tier 2 — MSME &amp; Business</div>
+          <h4>Medium-sized business loans</h4>
+          <div class="price">₹150–250 <span>/ application</span></div>
+          <p>Deep Fraud Agent pass: 6–12mo transaction history, trade credentials, GST filings.</p>
+        </div>
+        <div class="pricing-card">
+          <div class="tier">Tier 3 — Complex Corporate</div>
+          <h4>Heavy corporate underwriting</h4>
+          <div class="price">₹800–1,500 <span>/ application</span></div>
+          <p>Multi-agent concurrent parse: financial statements, balance sheets, audited tax returns, full Credit Memo.</p>
+        </div>
+      </div>
+      <div class="panel scrollbox" style="margin-top:16px">
+      <table>
+        <colgroup><col style="width:28%"><col style="width:22%"><col style="width:50%"></colgroup>
+        <thead><tr><th>Layer</th><th>Price</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td>Monthly SaaS retainer</td><td class="num">₹25,000 – ₹15,00,000 / mo</td><td>Platform access, monitoring, RBAC dashboards, gateway maintenance — flattens festive-season volume spikes</td></tr>
+          <tr><td>Legacy systems integration</td><td class="num">₹3,00,000 – ₹15,00,000+ one-time</td><td>Mapping agentic API outputs into core banking (Finacle, BaNCS) or a LOS like nCino</td></tr>
+          <tr><td>Custom prompt &amp; policy tuning</td><td class="num">Time &amp; materials</td><td>Engineering hours to encode a specific bank's risk appetite into the Compliance/OPA layer (§9.3)</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>2.9 &nbsp;Unit economics — a 20,000-application/month client</h3>
+      <div class="grid2">
+        <div class="stat"><div class="v">₹12,50,000</div><div class="l">Total monthly recurring revenue</div></div>
+        <div class="stat"><div class="v">₹90,000</div><div class="l">Total monthly COGS (~₹4.50 / application)</div></div>
+      </div>
+      <div class="econ-bar">
+        <div class="econ-seg cogs" style="width:7.2%"></div>
+        <div class="econ-seg profit" style="width:92.8%">Gross profit ₹11,60,000 — 92.8% margin</div>
+      </div>
+      <p class="diagram-cap" style="margin:0 0 18px">COGS ₹90,000 (7.2%) — ~₹3.50/app inference (cached, delegated to a self-hosted 7–8B model for routine parsing) + ~₹1.00/app vector/DB hosting.</p>
+
+      <div class="barchart">
+        <div class="barrow"><span class="blabel">Manual review</span><div class="bartrack"><div class="barfill neg" style="width:100%"></div></div><span class="bval">₹300–400</span></div>
+        <div class="barrow"><span class="blabel">Multi-agent AI</span><div class="bartrack"><div class="barfill pos" style="width:14%"></div></div><span class="bval">~₹50</span></div>
+      </div>
+      <div class="callout"><p><strong>The pitch to a CFO:</strong> this isn't an added expense — it's a ~₹250–350 direct OpEx saving per application, on top of the speed and consistency gains in §2.4–2.6.</p></div>
+
+      <h3>2.10 &nbsp;Challenges — and what already mitigates them</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:24%"><col style="width:40%"><col style="width:36%"></colgroup>
+        <thead><tr><th>Challenge</th><th>Why it's real</th><th>Already addressed by</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Hallucinated financial math</strong></td><td>LLMs are linguistic, not mathematical — a 0.1% error on compound interest or DTI can ruin a portfolio</td><td>Ratios are computed in code, never by the LLM (§5.3, Fig. 14); output guardrail diffs every cited number against source rows (§9.2)</td></tr>
+          <tr><td><strong>Legacy core-banking integration</strong></td><td>Ancient infrastructure, custom scorecards, no modern API surface</td><td>Priced explicitly as a professional service (§2.8); microservice API boundaries designed for this from the start (§12.1)</td></tr>
+          <tr><td><strong>Data / demographic bias</strong></td><td>Garbage in, garbage out — bias by zip code, age, or demographic proxy</td><td>Protected attributes excluded from every agent input; quarterly disparate-impact audit (§10.3)</td></tr>
+          <tr><td><strong>Model drift in a downturn</strong></td><td>A model tuned on a booming economy can misjudge risk in a recession</td><td>Eval harness + drift alerting on escalation-rate shifts; golden set refreshed from human-review disagreements (§11)</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section id="s3">
+      <span class="eyebrow">03</span>
+      <h2>Solution Overview</h2>
+      <p>Six agents, one orchestrator. The orchestrator owns the shared application state and routing; the five workers each own one domain and hand back a structured, confidence-scored verdict.</p>
+
+      <div class="legend">
+        <span><i style="background:var(--a-orch)"></i>Orchestrator</span>
+        <span><i style="background:var(--a-doc)"></i>Document Verification</span>
+        <span><i style="background:var(--a-credit)"></i>Credit Assessment</span>
+        <span><i style="background:var(--a-risk)"></i>Risk Assessment</span>
+        <span><i style="background:var(--a-dec)"></i>Loan Decision</span>
+        <span><i style="background:var(--a-human)"></i>Human Review</span>
+      </div>
+
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:15%"><col style="width:26%"><col style="width:18%"><col style="width:20%"><col style="width:21%"></colgroup>
+        <thead><tr><th>Agent</th><th>Core responsibility</th><th>Primary inputs</th><th>Primary outputs</th><th>Escalates when</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Orchestrator</strong></td><td>Routes the application through the pipeline, owns shared state, aggregates confidence, dispatches to human review</td><td>Application session, all agent outputs</td><td>Routing decisions, final assembled state</td><td>Any node failure, timeout, or schema-validation failure after retry</td></tr>
+          <tr><td><strong>Document Verification</strong></td><td>KYC, bank statements, salary slips, tax returns, employment letters, guarantor docs — parses, cross-checks, flags anomalies</td><td>Raw uploaded documents</td><td><code class="inline">verified_fields</code>, <code class="inline">doc_confidence</code>, anomaly flags</td><td>Confidence &lt; 0.80, forgery/tamper signal, illegible document</td></tr>
+          <tr><td><strong>Credit Assessment</strong></td><td>Credit score, outstanding loans, EMI history, repayment behaviour, debt-to-income ratio</td><td>Bureau report, verified fields</td><td>Score band, DTI ratio, credit confidence</td><td>Thin/no credit file, conflicting bureau records</td></tr>
+          <tr><td><strong>Risk Assessment</strong></td><td>Borrower income vs. underlying asset value, employer reliability, loan-amount-to-income</td><td>Verified fields, credit output, employer registry</td><td>Risk score, LTV / LTI ratios, risk flags</td><td>High LTV, employer unverifiable, income volatility</td></tr>
+          <tr><td><strong>Loan Decision</strong></td><td>Applies policy rules + weighted agent outputs to reach approve / reject / counter-offer</td><td>Outputs of the three agents above</td><td>Decision, terms, decision confidence, rationale</td><td>Confidence below policy threshold, borderline DTI/risk, policy exception required</td></tr>
+          <tr><td><strong>Human Review</strong></td><td>Interface agent — packages the case file + full agent rationale for a human underwriter and captures their verdict</td><td>Escalated case bundle</td><td>Human verdict, structured feedback record</td><td>— (terminal node; feeds back into the eval/training loop)</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>3.1 &nbsp;High-level workflow</h3>
+      <p>An application enters once, is enriched at each stage, and exits either fully decisioned or in a human's queue with everything they need already attached — no re-keying, no re-explaining.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 920 190" width="100%" role="img" aria-label="High level workflow from intake to decision">
+          <defs>
+            <marker id="ah1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker>
+            <marker id="ah1a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/></marker>
+            <marker id="ah1w" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--warn)"/></marker>
+          </defs>
+          <rect x="10" y="70" width="110" height="50" rx="6" class="n-rect"/><text x="65" y="90" text-anchor="middle" class="n-title">Intake</text><text x="65" y="105" text-anchor="middle" class="n-sub">application + docs</text>
+          <line x1="120" y1="95" x2="158" y2="95" class="edge" marker-end="url(#ah1)"/>
+          <rect x="160" y="55" width="130" height="82" rx="6" class="n-rect" style="border-left:4px solid"/><rect x="160" y="55" width="4" height="82" fill="var(--a-orch)"/><text x="230" y="80" text-anchor="middle" class="n-title">Orchestrator</text><text x="230" y="96" text-anchor="middle" class="n-sub">create state,</text><text x="230" y="110" text-anchor="middle" class="n-sub">route stage 1</text>
+          <line x1="290" y1="95" x2="328" y2="95" class="edge" marker-end="url(#ah1)"/>
+          <rect x="330" y="10" width="150" height="50" rx="6" class="n-rect"/><rect x="330" y="10" width="4" height="50" fill="var(--a-doc)"/><text x="405" y="30" text-anchor="middle" class="n-title">Doc Verification</text><text x="405" y="45" text-anchor="middle" class="n-sub">KYC, statements, slips</text>
+          <rect x="330" y="70" width="150" height="50" rx="6" class="n-rect"/><rect x="330" y="70" width="4" height="50" fill="var(--a-credit)"/><text x="405" y="90" text-anchor="middle" class="n-title">Credit Assessment</text><text x="405" y="105" text-anchor="middle" class="n-sub">score, DTI, EMI history</text>
+          <rect x="330" y="130" width="150" height="50" rx="6" class="n-rect"/><rect x="330" y="130" width="4" height="50" fill="var(--a-risk)"/><text x="405" y="150" text-anchor="middle" class="n-title">Risk Assessment</text><text x="405" y="165" text-anchor="middle" class="n-sub">LTV, LTI, employer</text>
+          <line x1="480" y1="35" x2="520" y2="90" class="edge" marker-end="url(#ah1)"/>
+          <line x1="480" y1="95" x2="520" y2="95" class="edge" marker-end="url(#ah1)"/>
+          <line x1="480" y1="155" x2="520" y2="100" class="edge" marker-end="url(#ah1)"/>
+          <rect x="522" y="60" width="140" height="70" rx="6" class="n-rect"/><rect x="522" y="60" width="4" height="70" fill="var(--a-dec)"/><text x="592" y="88" text-anchor="middle" class="n-title">Loan Decision</text><text x="592" y="103" text-anchor="middle" class="n-sub">policy + weighted score</text><text x="592" y="117" text-anchor="middle" class="n-sub">confidence check</text>
+          <line x1="662" y1="80" x2="700" y2="45" class="edge-a" marker-end="url(#ah1a)"/>
+          <line x1="662" y1="110" x2="700" y2="150" class="edge-w" marker-end="url(#ah1w)"/>
+          <rect x="702" y="12" width="130" height="50" rx="6" class="n-rect"/><text x="767" y="32" text-anchor="middle" class="n-title">Decisioned</text><text x="767" y="47" text-anchor="middle" class="n-sub" fill="var(--accent)">confidence ≥ 0.75</text>
+          <rect x="702" y="125" width="130" height="50" rx="6" class="n-rect"/><rect x="702" y="125" width="4" height="50" fill="var(--a-human)"/><text x="767" y="145" text-anchor="middle" class="n-title">Human Review</text><text x="767" y="160" text-anchor="middle" class="n-sub" fill="var(--warn)">below threshold</text>
+          <line x1="832" y1="150" x2="880" y2="150" class="edge" marker-end="url(#ah1)"/>
+          <line x1="880" y1="150" x2="880" y2="37" class="edge"/>
+          <line x1="880" y1="37" x2="832" y2="37" class="edge" marker-end="url(#ah1)"/>
+          <text x="856" y="95" text-anchor="middle" class="lbl" transform="rotate(90 856 95)">verdict</text>
+        </svg>
+        <div class="diagram-cap">Fig. 1 — Application lifecycle: parallel-capable specialist agents feed the decision agent, which either resolves the case or hands it to a human with the full trace attached.</div>
+      </div>
+    </section>
+
+    <section id="s4">
+      <span class="eyebrow">04</span>
+      <h2>System Architecture</h2>
+
+      <h3>4.1 &nbsp;High-level architecture</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1200 1150" width="100%" role="img" aria-label="System design blueprint for the loan approval platform, from authentication through fan-out services">
+          <defs>
+            <marker id="bp" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker>
+          </defs>
+
+          <rect x="10" y="10" width="330" height="165" rx="8" class="n-rect"/>
+          <text x="25" y="28" class="lbl">AUTHENTICATION FLOW</text>
+          <rect x="25" y="45" width="85" height="42" rx="5" class="n-rect n-ui"/><text x="67" y="70" text-anchor="middle" class="n-title">Client</text>
+          <line x1="110" y1="66" x2="133" y2="66" class="edge" marker-end="url(#bp)"/>
+          <g class="n-infra"><rect x="135" y="45" width="105" height="42" rx="5"/><text x="187" y="62" text-anchor="middle" class="n-title">Keycloak</text><text x="187" y="76" text-anchor="middle" class="n-sub">OIDC</text></g>
+          <line x1="240" y1="66" x2="263" y2="66" class="edge" marker-end="url(#bp)"/>
+          <g class="n-infra"><rect x="265" y="45" width="70" height="42" rx="5"/><text x="300" y="70" text-anchor="middle" class="n-title">Gateway</text></g>
+          <g transform="rotate(-1.2 170 134)">
+            <rect x="25" y="105" width="290" height="58" rx="4" class="note-rect"/>
+            <polygon points="301,105 315,105 315,119" class="note-fold"/>
+            <text x="35" y="123" class="note-text">OAuth2 / OIDC — short-lived tokens</text>
+            <text x="35" y="137" class="note-text">roles: underwriter · auditor · admin</text>
+            <text x="35" y="151" class="note-text">every auth event is audit-logged</text>
+          </g>
+
+          <text x="370" y="52" style="font-family:var(--font-display);font-weight:800;font-size:30px;fill:var(--text)">Enterprise Loan Approval</text>
+          <text x="370" y="90" style="font-family:var(--font-display);font-weight:800;font-size:30px;fill:var(--text)">System Design Blueprint</text>
+          <text x="371" y="115" class="lbl">Multi-Agent Decision Support — Architecture Reference</text>
+          <g>
+            <rect x="371" y="132" width="112" height="26" rx="13" class="pill"/><text x="427" y="149" text-anchor="middle" class="pill-text">LangGraph</text>
+            <rect x="491" y="132" width="90" height="26" rx="13" class="pill"/><text x="536" y="149" text-anchor="middle" class="pill-text">Ollama</text>
+            <rect x="589" y="132" width="112" height="26" rx="13" class="pill"/><text x="645" y="149" text-anchor="middle" class="pill-text">Guardrails</text>
+            <rect x="709" y="132" width="150" height="26" rx="13" class="pill"/><text x="784" y="149" text-anchor="middle" class="pill-text">SQLite → Postgres</text>
+          </g>
+          <g transform="rotate(1.3 1092 68)">
+            <rect x="1000" y="15" width="185" height="106" rx="4" class="note-rect"/>
+            <polygon points="1171,15 1185,15 1185,29" class="note-fold"/>
+            <text x="1010" y="33" class="note-text" style="font-weight:700">RESPONSE CODES</text>
+            <text x="1010" y="50" class="note-text">202 — accepted (async)</text>
+            <text x="1010" y="65" class="note-text">200 — decisioned</text>
+            <text x="1010" y="80" class="note-text">4XX — validation error</text>
+            <text x="1010" y="95" class="note-text">5XX — system error</text>
+            <text x="1010" y="110" class="note-text">SLA: 4h escalated cases</text>
+          </g>
+
+          <line x1="160" y1="176" x2="160" y2="233" class="edge" marker-end="url(#bp)"/>
+          <line x1="772" y1="176" x2="730" y2="233" class="edge" marker-end="url(#bp)"/>
+
+          <rect x="5" y="195" width="1190" height="190" rx="10" class="zone-infra"/>
+          <text x="25" y="220" class="zone-label">EDGE / LOAD BALANCING</text>
+
+          <g class="n-infra"><rect x="25" y="235" width="270" height="58" rx="6"/><text x="160" y="269" text-anchor="middle" class="n-title">API Gateway</text></g>
+          <g class="n-infra"><rect x="310" y="235" width="270" height="58" rx="6"/><text x="445" y="269" text-anchor="middle" class="n-title">Load Balancer</text></g>
+          <g class="n-infra"><rect x="595" y="235" width="270" height="58" rx="6"/><text x="730" y="269" text-anchor="middle" class="n-title">Identity &amp; Access</text></g>
+          <g class="n-infra"><rect x="880" y="235" width="270" height="58" rx="6"/><text x="1015" y="269" text-anchor="middle" class="n-title">Input Guardrails</text></g>
+
+          <g transform="rotate(-1 160 337)"><rect x="25" y="303" width="270" height="68" rx="4" class="note-rect"/><polygon points="281,303 295,303 295,317" class="note-fold"/>
+            <text x="35" y="321" class="note-text">Rate limit · TLS termination</text>
+            <text x="35" y="335" class="note-text">Request dedup</text>
+            <text x="35" y="349" class="note-text">Idempotency-Key header</text></g>
+          <g transform="rotate(1 445 337)"><rect x="310" y="303" width="270" height="68" rx="4" class="note-rect"/><polygon points="566,303 580,303 580,317" class="note-fold"/>
+            <text x="320" y="321" class="note-text">Round-robin / least-conn</text>
+            <text x="320" y="335" class="note-text">Health checks</text>
+            <text x="320" y="349" class="note-text">Multi-AZ failover</text></g>
+          <g transform="rotate(-1 730 337)"><rect x="595" y="303" width="270" height="68" rx="4" class="note-rect"/><polygon points="851,303 865,303 865,317" class="note-fold"/>
+            <text x="605" y="321" class="note-text">RBAC roles, least privilege</text>
+            <text x="605" y="335" class="note-text">Session revocation</text>
+            <text x="605" y="349" class="note-text">Every auth event audited</text></g>
+          <g transform="rotate(1 1015 337)"><rect x="880" y="303" width="270" height="68" rx="4" class="note-rect"/><polygon points="1136,303 1150,303 1150,317" class="note-fold"/>
+            <text x="890" y="321" class="note-text">PII redact (Presidio)</text>
+            <text x="890" y="335" class="note-text">Prompt-injection scan</text>
+            <text x="890" y="349" class="note-text">File type / size / malware check</text></g>
+
+          <line x1="160" y1="371" x2="550" y2="438" class="edge" marker-end="url(#bp)"/>
+          <line x1="1015" y1="371" x2="650" y2="438" class="edge" marker-end="url(#bp)"/>
+
+          <rect x="5" y="400" width="1190" height="305" rx="10" class="zone-svc"/>
+          <text x="25" y="425" class="zone-label">AGENT MICROSERVICES — #MultiAgent #LangGraph</text>
+
+          <rect x="485" y="440" width="230" height="48" rx="6" class="n-rect n-svc"/><rect x="485" y="440" width="4" height="48" fill="var(--a-orch)"/>
+          <text x="600" y="461" text-anchor="middle" class="n-title">Orchestrator</text><text x="600" y="476" text-anchor="middle" class="n-sub">LangGraph state machine</text>
+
+          <line x1="540" y1="488" x2="135" y2="503" class="edge"/>
+          <line x1="565" y1="488" x2="370" y2="503" class="edge"/>
+          <line x1="600" y1="488" x2="600" y2="503" class="edge"/>
+          <line x1="635" y1="488" x2="840" y2="503" class="edge"/>
+          <line x1="660" y1="488" x2="1075" y2="503" class="edge"/>
+
+          <rect x="25" y="505" width="220" height="72" rx="6" class="n-rect n-svc"/><rect x="25" y="505" width="4" height="72" fill="var(--a-doc)"/><text x="135" y="537" text-anchor="middle" class="n-title">Doc Verification</text><text x="135" y="553" text-anchor="middle" class="n-sub">svc</text>
+          <rect x="260" y="505" width="220" height="72" rx="6" class="n-rect n-svc"/><rect x="260" y="505" width="4" height="72" fill="var(--a-credit)"/><text x="370" y="537" text-anchor="middle" class="n-title">Credit Assessment</text><text x="370" y="553" text-anchor="middle" class="n-sub">svc</text>
+          <rect x="495" y="505" width="220" height="72" rx="6" class="n-rect n-svc"/><rect x="495" y="505" width="4" height="72" fill="var(--a-risk)"/><text x="605" y="537" text-anchor="middle" class="n-title">Risk Assessment</text><text x="605" y="553" text-anchor="middle" class="n-sub">svc</text>
+          <rect x="730" y="505" width="220" height="72" rx="6" class="n-rect n-svc"/><rect x="730" y="505" width="4" height="72" fill="var(--a-dec)"/><text x="840" y="537" text-anchor="middle" class="n-title">Loan Decision</text><text x="840" y="553" text-anchor="middle" class="n-sub">svc</text>
+          <rect x="965" y="505" width="220" height="72" rx="6" class="n-rect n-svc"/><rect x="965" y="505" width="4" height="72" fill="var(--a-human)"/><text x="1075" y="537" text-anchor="middle" class="n-title">Human Review</text><text x="1075" y="553" text-anchor="middle" class="n-sub">svc + queue</text>
+
+          <rect x="25" y="592" width="1160" height="55" rx="4" class="note-rect"/>
+          <text x="40" y="610" class="note-text">Schema-validate (Pydantic) → retry once → escalate</text>
+          <text x="40" y="625" class="note-text">PII tokenized before every LLM call — raw values never enter model context</text>
+          <text x="40" y="640" class="note-text">OPA policy can veto or downgrade a recommendation — never upgrade it</text>
+
+          <rect x="25" y="658" width="1160" height="40" rx="6" class="n-rect n-svc"/>
+          <text x="605" y="683" text-anchor="middle" class="n-title">Ollama Inference Pool — GPU pool, quantised per agent, self-hosted in VPC</text>
+
+          <line x1="605" y1="698" x2="605" y2="753" class="edge" marker-end="url(#bp)"/>
+
+          <rect x="5" y="720" width="1190" height="220" rx="10" class="zone-data"/>
+          <text x="25" y="745" class="zone-label">DATA LAYER — #ACID #EventDriven</text>
+
+          <rect x="25" y="755" width="220" height="60" rx="6" class="n-rect n-data"/><text x="135" y="790" text-anchor="middle" class="n-title">Postgres</text>
+          <rect x="260" y="755" width="220" height="60" rx="6" class="n-rect n-data"/><text x="370" y="790" text-anchor="middle" class="n-title">Redis</text>
+          <rect x="495" y="755" width="220" height="60" rx="6" class="n-rect n-data"/><text x="605" y="790" text-anchor="middle" class="n-title">Kafka</text>
+          <rect x="730" y="755" width="220" height="60" rx="6" class="n-rect n-data"/><text x="840" y="790" text-anchor="middle" class="n-title">MinIO</text>
+          <rect x="965" y="755" width="220" height="60" rx="6" class="n-rect n-data"/><text x="1075" y="790" text-anchor="middle" class="n-title">pgvector</text>
+
+          <g transform="rotate(-1 135 875)"><rect x="25" y="825" width="220" height="100" rx="4" class="note-rect"/><polygon points="231,825 245,825 245,839" class="note-fold"/>
+            <text x="35" y="844" class="note-text">System of record</text>
+            <text x="35" y="859" class="note-text">Monthly-partitioned</text>
+            <text x="35" y="874" class="note-text">audit_log</text>
+            <text x="35" y="895" class="note-text">PgBouncer pooling</text></g>
+          <g transform="rotate(1 370 875)"><rect x="260" y="825" width="220" height="100" rx="4" class="note-rect"/><polygon points="466,825 480,825 480,839" class="note-fold"/>
+            <text x="270" y="844" class="note-text">Cache + LangGraph</text>
+            <text x="270" y="859" class="note-text">checkpoints</text>
+            <text x="270" y="874" class="note-text">TTL eviction</text>
+            <text x="270" y="895" class="note-text">Rate-limit counters</text></g>
+          <g transform="rotate(-1 605 875)"><rect x="495" y="825" width="220" height="100" rx="4" class="note-rect"/><polygon points="701,825 715,825 715,839" class="note-fold"/>
+            <text x="505" y="844" class="note-text">loan.state.events topic</text>
+            <text x="505" y="859" class="note-text">Replayable,</text>
+            <text x="505" y="874" class="note-text">backpressure-aware</text>
+            <text x="505" y="895" class="note-text">Drives KEDA autoscale</text></g>
+          <g transform="rotate(1 840 875)"><rect x="730" y="825" width="220" height="100" rx="4" class="note-rect"/><polygon points="936,825 950,825 950,839" class="note-fold"/>
+            <text x="740" y="844" class="note-text">Encrypted documents</text>
+            <text x="740" y="859" class="note-text">AES-256 at rest</text>
+            <text x="740" y="874" class="note-text">Signed-URL access</text>
+            <text x="740" y="895" class="note-text">only, never direct</text></g>
+          <g transform="rotate(-1 1075 875)"><rect x="965" y="825" width="220" height="100" rx="4" class="note-rect"/><polygon points="1171,825 1185,825 1185,839" class="note-fold"/>
+            <text x="975" y="844" class="note-text">Policy + RAG lookups</text>
+            <text x="975" y="859" class="note-text">Fraud-pattern</text>
+            <text x="975" y="874" class="note-text">similarity search</text>
+            <text x="975" y="895" class="note-text">Embeddings via Ollama</text></g>
+
+          <line x1="605" y1="925" x2="605" y2="988" class="edge" marker-end="url(#bp)"/>
+
+          <rect x="5" y="955" width="1190" height="185" rx="10" class="zone-warn"/>
+          <text x="25" y="980" class="zone-label">COMMON FAN-OUT SERVICES</text>
+
+          <rect x="25" y="990" width="270" height="55" rx="6" class="n-rect n-svc"/><text x="160" y="1022" text-anchor="middle" class="n-title">Notification Service</text>
+          <rect x="315" y="990" width="270" height="55" rx="6" class="n-rect n-svc"/><text x="450" y="1022" text-anchor="middle" class="n-title">Audit &amp; Compliance Log</text>
+          <rect x="605" y="990" width="270" height="55" rx="6" class="n-rect n-svc"/><text x="740" y="1022" text-anchor="middle" class="n-title">Analytics &amp; Reporting</text>
+          <rect x="895" y="990" width="270" height="55" rx="6" class="n-rect n-svc"/><text x="1030" y="1022" text-anchor="middle" class="n-title">Observability</text>
+
+          <g transform="rotate(1 160 1090)"><rect x="25" y="1055" width="270" height="70" rx="4" class="note-rect"/><polygon points="281,1055 295,1055 295,1069" class="note-fold"/>
+            <text x="35" y="1074" class="note-text">Applicant email / SMS</text>
+            <text x="35" y="1089" class="note-text">Decision + next steps</text>
+            <text x="35" y="1104" class="note-text">Delivery retried, logged</text></g>
+          <g transform="rotate(-1 450 1090)"><rect x="315" y="1055" width="270" height="70" rx="4" class="note-rect"/><polygon points="571,1055 585,1055 585,1069" class="note-fold"/>
+            <text x="325" y="1074" class="note-text">OpenSearch index</text>
+            <text x="325" y="1089" class="note-text">7-year retention</text>
+            <text x="325" y="1104" class="note-text">Full-text + faceted search</text></g>
+          <g transform="rotate(1 740 1090)"><rect x="605" y="1055" width="270" height="70" rx="4" class="note-rect"/><polygon points="861,1055 875,1055 875,1069" class="note-fold"/>
+            <text x="615" y="1074" class="note-text">Grafana dashboards</text>
+            <text x="615" y="1089" class="note-text">STP rate, escalation rate</text>
+            <text x="615" y="1104" class="note-text">Cost per application</text></g>
+          <g transform="rotate(-1 1030 1090)"><rect x="895" y="1055" width="270" height="70" rx="4" class="note-rect"/><polygon points="1151,1055 1165,1055 1165,1069" class="note-fold"/>
+            <text x="905" y="1074" class="note-text">Prometheus + Langfuse</text>
+            <text x="905" y="1089" class="note-text">Per-agent trace &amp; cost</text>
+            <text x="905" y="1104" class="note-text">OpenTelemetry spans</text></g>
+        </svg>
+        <div class="diagram-legend">
+          <span><i style="background:var(--cat-ui-fill);border:1px solid var(--cat-ui)"></i>Client / UI</span>
+          <span><i style="background:var(--cat-svc-fill);border:1px solid var(--cat-svc)"></i>Agent / Service</span>
+          <span><i style="background:var(--cat-data-fill);border:1px solid var(--cat-data)"></i>Data store / queue</span>
+          <span><i style="background:var(--cat-infra)"></i>Gateway / Auth (infra)</span>
+          <span><i style="background:var(--note-bg);border:1px solid var(--note-border)"></i>Design consideration</span>
+        </div>
+        <div class="diagram-cap">Fig. 2 — full system design blueprint, authentication through fan-out services. Guardrails wrap the agent band (detail in Fig. 7); nothing produced there reaches shared state unfiltered.</div>
+      </div>
+
+      <h3>4.2 &nbsp;Agent orchestration graph (LangGraph)</h3>
+      <p>A LangGraph <code class="inline">StateGraph</code>: every node reads/writes one shared state object, checkpointed to Postgres after each hop. One conditional edge, after the decision node, is the only branch point.</p>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 940 300" width="100%" role="img" aria-label="LangGraph state graph for the loan pipeline">
+          <defs>
+            <marker id="ah3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker>
+            <marker id="ah3a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/></marker>
+            <marker id="ah3w" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--warn)"/></marker>
+          </defs>
+          <circle cx="25" cy="140" r="16" class="n-rect"/><text x="25" y="144" text-anchor="middle" class="n-sub">START</text>
+          <line x1="41" y1="140" x2="58" y2="140" class="edge" marker-end="url(#ah3)"/>
+          <rect x="60" y="110" width="140" height="60" rx="6" class="n-rect"/><rect x="60" y="110" width="4" height="60" fill="var(--a-doc)"/><text x="130" y="136" text-anchor="middle" class="n-title">doc_verification</text><text x="130" y="152" text-anchor="middle" class="n-sub">node</text>
+          <line x1="200" y1="140" x2="218" y2="140" class="edge" marker-end="url(#ah3)"/>
+          <rect x="220" y="110" width="140" height="60" rx="6" class="n-rect"/><rect x="220" y="110" width="4" height="60" fill="var(--a-credit)"/><text x="290" y="136" text-anchor="middle" class="n-title">credit_assessment</text><text x="290" y="152" text-anchor="middle" class="n-sub">node</text>
+          <line x1="360" y1="140" x2="378" y2="140" class="edge" marker-end="url(#ah3)"/>
+          <rect x="380" y="110" width="140" height="60" rx="6" class="n-rect"/><rect x="380" y="110" width="4" height="60" fill="var(--a-risk)"/><text x="450" y="136" text-anchor="middle" class="n-title">risk_assessment</text><text x="450" y="152" text-anchor="middle" class="n-sub">node</text>
+          <line x1="520" y1="140" x2="538" y2="140" class="edge" marker-end="url(#ah3)"/>
+          <rect x="540" y="110" width="140" height="60" rx="6" class="n-rect"/><rect x="540" y="110" width="4" height="60" fill="var(--a-dec)"/><text x="610" y="136" text-anchor="middle" class="n-title">loan_decision</text><text x="610" y="152" text-anchor="middle" class="n-sub">node</text>
+          <line x1="680" y1="140" x2="697" y2="140" class="edge" marker-end="url(#ah3)"/>
+          <polygon points="745,90 810,140 745,190 680,140" class="n-rect"/>
+          <text x="745" y="136" text-anchor="middle" class="n-sub">conf ≥ 0.75,</text>
+          <text x="745" y="150" text-anchor="middle" class="n-sub">no hard-stop?</text>
+
+          <line x1="790" y1="112" x2="835" y2="65" class="edge-a" marker-end="url(#ah3a)"/>
+          <text x="810" y="75" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="838" y="35" width="95" height="50" rx="6" class="n-rect"/><text x="885" y="55" text-anchor="middle" class="n-title">END</text><text x="885" y="70" text-anchor="middle" class="n-sub">decisioned</text>
+
+          <line x1="790" y1="168" x2="835" y2="212" class="edge-w" marker-end="url(#ah3w)"/>
+          <text x="810" y="205" class="lbl" fill="var(--warn)">no</text>
+          <rect x="838" y="187" width="95" height="50" rx="6" class="n-rect"/><rect x="838" y="187" width="4" height="50" fill="var(--a-human)"/><text x="885" y="207" text-anchor="middle" class="n-title">human_review</text><text x="885" y="222" text-anchor="middle" class="n-sub">node</text>
+
+          <line x1="885" y1="237" x2="885" y2="253" class="edge" marker-end="url(#ah3)"/>
+          <rect x="838" y="255" width="95" height="40" rx="6" class="n-rect"/><text x="885" y="272" text-anchor="middle" class="n-title">END</text><text x="885" y="285" text-anchor="middle" class="n-sub">escalated</text>
+
+          <text x="60" y="26" class="lbl">every node → validate (Pydantic) → retry once → checkpoint</text>
+        </svg>
+        <div class="diagram-cap">Fig. 3 — LangGraph <code class="inline">StateGraph</code>: a linear chain with a single conditional edge. The conditional is the only branch point — everything else is deterministic sequencing over shared state.</div>
+      </div>
+
+      <h3>4.3 &nbsp;Data flow</h3>
+      <p>Distinct from the control-flow graph above: this is what happens to the <em>data itself</em> as it moves from a raw upload to a permanent, queryable record.</p>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 940 190" width="100%" role="img" aria-label="Data flow diagram from document ingestion to audit log">
+          <defs><marker id="ah4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="60" width="130" height="55" rx="6" class="n-rect"/><text x="75" y="82" text-anchor="middle" class="n-title">Ingestion</text><text x="75" y="97" text-anchor="middle" class="n-sub">upload → MinIO</text>
+          <line x1="140" y1="87" x2="168" y2="87" class="edge" marker-end="url(#ah4)"/>
+          <rect x="170" y="60" width="130" height="55" rx="6" class="n-rect"/><text x="235" y="82" text-anchor="middle" class="n-title">OCR / Parse</text><text x="235" y="97" text-anchor="middle" class="n-sub">PaddleOCR + vision LLM</text>
+          <line x1="300" y1="87" x2="328" y2="87" class="edge" marker-end="url(#ah4)"/>
+          <rect x="330" y="60" width="130" height="55" rx="6" class="n-rect"/><text x="395" y="82" text-anchor="middle" class="n-title">Normalize</text><text x="395" y="97" text-anchor="middle" class="n-sub">field schema + units</text>
+          <line x1="460" y1="87" x2="488" y2="87" class="edge" marker-end="url(#ah4)"/>
+          <rect x="490" y="60" width="130" height="55" rx="6" class="n-rect"/><text x="555" y="82" text-anchor="middle" class="n-title">Feature Store</text><text x="555" y="97" text-anchor="middle" class="n-sub">Redis + Postgres</text>
+          <line x1="620" y1="87" x2="648" y2="87" class="edge" marker-end="url(#ah4)"/>
+          <rect x="650" y="60" width="130" height="55" rx="6" class="n-rect"/><text x="715" y="82" text-anchor="middle" class="n-title">Agents consume</text><text x="715" y="97" text-anchor="middle" class="n-sub">doc / credit / risk / decision</text>
+          <line x1="700" y1="60" x2="700" y2="20" class="edge" marker-end="url(#ah4)"/>
+          <line x1="730" y1="115" x2="730" y2="150" class="edge" marker-end="url(#ah4)"/>
+          <rect x="650" y="10" width="130" height="40" rx="6" class="n-rect"/><text x="715" y="26" text-anchor="middle" class="n-title">Decision Record</text><text x="715" y="40" text-anchor="middle" class="n-sub">decisions table</text>
+          <rect x="650" y="150" width="130" height="35" rx="6" class="n-rect"/><text x="715" y="163" text-anchor="middle" class="n-title">Kafka → Audit Log</text><text x="715" y="177" text-anchor="middle" class="n-sub">+ OpenSearch, analytics lake</text>
+        </svg>
+        <div class="diagram-cap">Fig. 4 — Raw bytes become a decision record and a permanent audit trail; nothing is thrown away between the two.</div>
+      </div>
+
+      <h3>4.4 &nbsp;Sequence: one application, end to end</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 940 450" width="100%" role="img" aria-label="Sequence diagram of one loan application through the agent pipeline">
+          <defs><marker id="ah5" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+          <g class="lbl">
+            <text x="40" y="20" text-anchor="middle" class="n-title">Client</text>
+            <text x="183" y="20" text-anchor="middle" class="n-title">Gateway</text>
+            <text x="327" y="20" text-anchor="middle" class="n-title">Orchestrator</text>
+            <text x="470" y="20" text-anchor="middle" class="n-title">DocAgent</text>
+            <text x="613" y="20" text-anchor="middle" class="n-title">CreditAgent</text>
+            <text x="757" y="20" text-anchor="middle" class="n-title">RiskAgent</text>
+            <text x="900" y="20" text-anchor="middle" class="n-title">DecisionAgent</text>
+          </g>
+          <line x1="40" y1="30" x2="40" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="183" y1="30" x2="183" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="327" y1="30" x2="327" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="470" y1="30" x2="470" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="613" y1="30" x2="613" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="757" y1="30" x2="757" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <line x1="900" y1="30" x2="900" y2="410" stroke="var(--line)" stroke-dasharray="3 3"/>
+
+          <text x="112" y="52" text-anchor="middle" class="lbl">POST /applications</text>
+          <line x1="40" y1="58" x2="183" y2="58" class="edge" marker-end="url(#ah5)"/>
+          <text x="255" y="76" text-anchor="middle" class="lbl">create session, checkpoint</text>
+          <line x1="183" y1="82" x2="327" y2="82" class="edge" marker-end="url(#ah5)"/>
+
+          <text x="398" y="100" text-anchor="middle" class="lbl">verify(docs)</text>
+          <line x1="327" y1="106" x2="470" y2="106" class="edge" marker-end="url(#ah5)"/>
+          <text x="398" y="128" text-anchor="middle" class="lbl">verified_fields · conf 0.92</text>
+          <line x1="470" y1="134" x2="327" y2="134" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+
+          <text x="470" y="156" text-anchor="middle" class="lbl">assess(fields)</text>
+          <line x1="327" y1="162" x2="613" y2="162" class="edge" marker-end="url(#ah5)"/>
+          <text x="613" y="180" text-anchor="middle" class="lbl">↳ credit bureau API (external)</text>
+          <text x="470" y="200" text-anchor="middle" class="lbl">score_band · DTI · conf 0.88</text>
+          <line x1="613" y1="206" x2="327" y2="206" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+
+          <text x="542" y="228" text-anchor="middle" class="lbl">assess(fields, credit)</text>
+          <line x1="327" y1="234" x2="757" y2="234" class="edge" marker-end="url(#ah5)"/>
+          <text x="542" y="256" text-anchor="middle" class="lbl">risk_score · flags · conf 0.81</text>
+          <line x1="757" y1="262" x2="327" y2="262" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+
+          <text x="613" y="284" text-anchor="middle" class="lbl">decide(all outputs)</text>
+          <line x1="327" y1="290" x2="900" y2="290" class="edge" marker-end="url(#ah5)"/>
+          <text x="613" y="312" text-anchor="middle" class="lbl">decision · rationale · conf 0.91</text>
+          <line x1="900" y1="318" x2="327" y2="318" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+
+          <text x="255" y="340" text-anchor="middle" class="lbl">200 + decision</text>
+          <line x1="327" y1="346" x2="183" y2="346" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+          <line x1="183" y1="366" x2="40" y2="366" class="edge" stroke-dasharray="4 3" marker-end="url(#ah5)"/>
+          <text x="112" y="360" text-anchor="middle" class="lbl">response</text>
+
+          <rect x="320" y="382" width="588" height="26" fill="none" stroke="var(--warn)" stroke-dasharray="4 3"/>
+          <text x="330" y="398" class="lbl" fill="var(--warn)">ALT — confidence &lt; 0.75 → Human Review, async, SLA 4h</text>
+        </svg>
+        <div class="diagram-cap">Fig. 5 — Happy-path sequence for a straight-through application; the ALT fragment shows where the human-review branch diverges.</div>
+      </div>
+    </section>
+
+    <section id="s5">
+      <span class="eyebrow">05</span>
+      <h2>Per-Agent Design</h2>
+      <p>One contract for all six: read state → call tools → emit schema-validated JSON with a confidence score. No agent writes free-text prose into shared state.</p>
+
+      <h3>5.1 &nbsp;Orchestrator</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 260" width="100%" role="img" aria-label="Orchestrator agent internal workflow">
+          <defs><marker id="oa" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="100" width="130" height="60" rx="6" class="n-rect n-data"/><text x="75" y="124" text-anchor="middle" class="n-title">New</text><text x="75" y="139" text-anchor="middle" class="n-sub">Application</text>
+          <line x1="140" y1="130" x2="163" y2="130" class="edge" marker-end="url(#oa)"/>
+          <rect x="165" y="90" width="150" height="80" rx="6" class="n-rect n-svc"/><rect x="165" y="90" width="4" height="80" fill="var(--a-orch)"/><text x="240" y="120" text-anchor="middle" class="n-title">① Create / Load State</text><text x="240" y="138" text-anchor="middle" class="n-sub">Postgres checkpoint</text>
+          <line x1="315" y1="130" x2="338" y2="130" class="edge" marker-end="url(#oa)"/>
+          <rect x="340" y="90" width="150" height="80" rx="6" class="n-rect n-svc"/><rect x="340" y="90" width="4" height="80" fill="var(--a-orch)"/><text x="415" y="120" text-anchor="middle" class="n-title">② Route Next Node</text><text x="415" y="138" text-anchor="middle" class="n-sub">per graph edge</text>
+          <line x1="490" y1="130" x2="513" y2="130" class="edge" marker-end="url(#oa)"/>
+          <rect x="515" y="90" width="150" height="80" rx="6" class="n-rect n-svc"/><rect x="515" y="90" width="4" height="80" fill="var(--a-orch)"/><text x="590" y="120" text-anchor="middle" class="n-title">③ Await Agent Result</text><text x="590" y="138" text-anchor="middle" class="n-sub">SLA timeout: 20s</text>
+          <line x1="665" y1="130" x2="688" y2="130" class="edge" marker-end="url(#oa)"/>
+          <rect x="690" y="90" width="150" height="80" rx="6" class="n-rect n-svc"/><rect x="690" y="90" width="4" height="80" fill="var(--a-orch)"/><text x="765" y="120" text-anchor="middle" class="n-title">④ Validate + Checkpoint</text><text x="765" y="138" text-anchor="middle" class="n-sub">Pydantic → Postgres</text>
+          <line x1="840" y1="130" x2="863" y2="130" class="edge" marker-end="url(#oa)"/>
+          <rect x="865" y="100" width="125" height="60" rx="6" class="n-rect n-data"/><text x="927" y="124" text-anchor="middle" class="n-title">Final State</text><text x="927" y="139" text-anchor="middle" class="n-sub">→ audit_log</text>
+
+          <line x1="765" y1="170" x2="765" y2="215" class="edge"/>
+          <line x1="765" y1="215" x2="415" y2="215" class="edge"/>
+          <line x1="415" y1="215" x2="415" y2="172" class="edge" marker-end="url(#oa)"/>
+          <text x="590" y="235" text-anchor="middle" class="lbl">repeat ②–④ once per stage: doc → credit → risk → decision</text>
+        </svg>
+        <div class="diagram-cap">Fig. 12 — Orchestrator: the only node that writes routing decisions; everything else is read-tools-write.</div>
+      </div>
+
+      <h3>5.2 &nbsp;Document Verification</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 260" width="100%" role="img" aria-label="Document verification agent workflow">
+          <defs><marker id="da" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="95" width="120" height="70" rx="6" class="n-rect n-data"/><text x="70" y="122" text-anchor="middle" class="n-title">Raw Docs</text><text x="70" y="138" text-anchor="middle" class="n-sub">KYC, statements,</text><text x="70" y="152" text-anchor="middle" class="n-sub">slips, guarantor</text>
+          <line x1="130" y1="130" x2="148" y2="130" class="edge" marker-end="url(#da)"/>
+          <rect x="150" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="150" y="85" width="4" height="90" fill="var(--a-doc)"/><text x="220" y="118" text-anchor="middle" class="n-title">① OCR / Extract</text><text x="220" y="136" text-anchor="middle" class="n-sub">PaddleOCR +</text><text x="220" y="150" text-anchor="middle" class="n-sub">vision LLM</text>
+          <line x1="290" y1="130" x2="308" y2="130" class="edge" marker-end="url(#da)"/>
+          <rect x="310" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="310" y="85" width="4" height="90" fill="var(--a-doc)"/><text x="380" y="118" text-anchor="middle" class="n-title">② Normalize</text><text x="380" y="136" text-anchor="middle" class="n-sub">fixed field</text><text x="380" y="150" text-anchor="middle" class="n-sub">schema</text>
+          <line x1="450" y1="130" x2="468" y2="130" class="edge" marker-end="url(#da)"/>
+          <rect x="470" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="470" y="85" width="4" height="90" fill="var(--a-doc)"/><text x="540" y="118" text-anchor="middle" class="n-title">③ Consistency</text><text x="540" y="136" text-anchor="middle" class="n-sub">cross-document</text><text x="540" y="150" text-anchor="middle" class="n-sub">name / income match</text>
+          <line x1="610" y1="130" x2="628" y2="130" class="edge" marker-end="url(#da)"/>
+          <rect x="630" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="630" y="85" width="4" height="90" fill="var(--a-doc)"/><text x="700" y="118" text-anchor="middle" class="n-title">④ Forgery Check</text><text x="700" y="136" text-anchor="middle" class="n-sub">tamper / template</text><text x="700" y="150" text-anchor="middle" class="n-sub">classifier</text>
+          <line x1="770" y1="130" x2="788" y2="130" class="edge" marker-end="url(#da)"/>
+          <polygon points="790,130 835,90 880,130 835,170" class="n-rect"/><text x="835" y="126" text-anchor="middle" class="n-sub">conf ≥ 0.80,</text><text x="835" y="139" text-anchor="middle" class="n-sub">no forgery?</text>
+          <line x1="870" y1="105" x2="898" y2="80" class="edge-a" marker-end="url(#da)"/><text x="895" y="72" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="900" y="55" width="95" height="55" rx="6" class="n-rect n-data"/><text x="947" y="76" text-anchor="middle" class="n-title">verified_</text><text x="947" y="91" text-anchor="middle" class="n-title">fields</text>
+          <line x1="870" y1="155" x2="898" y2="180" class="edge-w" marker-end="url(#da)"/><text x="895" y="195" class="lbl" fill="var(--warn)">no</text>
+          <rect x="900" y="170" width="95" height="55" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="900" y="170" width="4" height="55" fill="var(--a-human)"/><text x="947" y="191" text-anchor="middle" class="n-title">Escalate →</text><text x="947" y="206" text-anchor="middle" class="n-title">Human</text>
+        </svg>
+        <div class="diagram-cap">Fig. 13 — <span class="mono">doc_confidence = min(ocr_confidence, consistency_score, 1 − forgery_signal)</span>.</div>
+      </div>
+
+      <h3>5.3 &nbsp;Credit Assessment</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 260" width="100%" role="img" aria-label="Credit assessment agent workflow">
+          <defs><marker id="ca" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="100" width="120" height="60" rx="6" class="n-rect n-data"/><text x="70" y="124" text-anchor="middle" class="n-title">verified_</text><text x="70" y="139" text-anchor="middle" class="n-title">fields</text>
+          <line x1="130" y1="130" x2="148" y2="130" class="edge" marker-end="url(#ca)"/>
+          <g class="n-infra"><rect x="150" y="85" width="140" height="90" rx="6"/><text x="220" y="118" text-anchor="middle" class="n-title">① Bureau API</text><text x="220" y="136" text-anchor="middle" class="n-sub">external call —</text><text x="220" y="150" text-anchor="middle" class="n-sub">credit report</text></g>
+          <line x1="290" y1="130" x2="308" y2="130" class="edge" marker-end="url(#ca)"/>
+          <rect x="310" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="310" y="85" width="4" height="90" fill="var(--a-credit)"/><text x="380" y="118" text-anchor="middle" class="n-title">② Parse EMI</text><text x="380" y="136" text-anchor="middle" class="n-sub">repayment</text><text x="380" y="150" text-anchor="middle" class="n-sub">history</text>
+          <line x1="450" y1="130" x2="468" y2="130" class="edge" marker-end="url(#ca)"/>
+          <rect x="470" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="470" y="85" width="4" height="90" fill="var(--a-credit)"/><text x="540" y="118" text-anchor="middle" class="n-title">③ Compute DTI</text><text x="540" y="136" text-anchor="middle" class="n-sub">deterministic</text><text x="540" y="150" text-anchor="middle" class="n-sub">function, not LLM</text>
+          <line x1="610" y1="130" x2="628" y2="130" class="edge" marker-end="url(#ca)"/>
+          <rect x="630" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="630" y="85" width="4" height="90" fill="var(--a-credit)"/><text x="700" y="118" text-anchor="middle" class="n-title">④ Score Band</text><text x="700" y="136" text-anchor="middle" class="n-sub">LLM maps profile</text><text x="700" y="150" text-anchor="middle" class="n-sub">→ policy band</text>
+          <line x1="770" y1="130" x2="788" y2="130" class="edge" marker-end="url(#ca)"/>
+          <polygon points="790,130 835,90 880,130 835,170" class="n-rect"/><text x="835" y="126" text-anchor="middle" class="n-sub">file thick,</text><text x="835" y="139" text-anchor="middle" class="n-sub">sources agree?</text>
+          <line x1="870" y1="105" x2="898" y2="80" class="edge-a" marker-end="url(#ca)"/><text x="895" y="72" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="900" y="55" width="95" height="55" rx="6" class="n-rect n-data"/><text x="947" y="76" text-anchor="middle" class="n-title">score_band,</text><text x="947" y="91" text-anchor="middle" class="n-title">DTI</text>
+          <line x1="870" y1="155" x2="898" y2="180" class="edge-w" marker-end="url(#ca)"/><text x="895" y="195" class="lbl" fill="var(--warn)">no</text>
+          <rect x="900" y="170" width="95" height="55" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="900" y="170" width="4" height="55" fill="var(--a-human)"/><text x="947" y="191" text-anchor="middle" class="n-title">Escalate →</text><text x="947" y="206" text-anchor="middle" class="n-title">Human</text>
+        </svg>
+        <div class="diagram-cap">Fig. 14 — thin file (&lt; 6mo history) or two bureaus disagreeing &gt; 30pts forces escalation.</div>
+      </div>
+
+      <h3>5.4 &nbsp;Risk Assessment</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 260" width="100%" role="img" aria-label="Risk assessment agent workflow">
+          <defs><marker id="ra" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="95" width="120" height="70" rx="6" class="n-rect n-data"/><text x="70" y="122" text-anchor="middle" class="n-title">fields +</text><text x="70" y="138" text-anchor="middle" class="n-title">credit profile</text>
+          <line x1="130" y1="130" x2="148" y2="130" class="edge" marker-end="url(#ra)"/>
+          <g class="n-infra"><rect x="150" y="85" width="140" height="90" rx="6"/><text x="220" y="118" text-anchor="middle" class="n-title">① Asset + Employer</text><text x="220" y="136" text-anchor="middle" class="n-sub">external lookups</text><text x="220" y="150" text-anchor="middle" class="n-sub">valuation, registry</text></g>
+          <line x1="290" y1="130" x2="308" y2="130" class="edge" marker-end="url(#ra)"/>
+          <rect x="310" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="310" y="85" width="4" height="90" fill="var(--a-risk)"/><text x="380" y="118" text-anchor="middle" class="n-title">② Compute LTV/LTI</text><text x="380" y="136" text-anchor="middle" class="n-sub">deterministic</text><text x="380" y="150" text-anchor="middle" class="n-sub">ratios</text>
+          <line x1="450" y1="130" x2="468" y2="130" class="edge" marker-end="url(#ra)"/>
+          <rect x="470" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="470" y="85" width="4" height="90" fill="var(--a-risk)"/><text x="540" y="118" text-anchor="middle" class="n-title">③ Income Volatility</text><text x="540" y="136" text-anchor="middle" class="n-sub">bank-statement</text><text x="540" y="150" text-anchor="middle" class="n-sub">time series</text>
+          <line x1="610" y1="130" x2="628" y2="130" class="edge" marker-end="url(#ra)"/>
+          <rect x="630" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="630" y="85" width="4" height="90" fill="var(--a-risk)"/><text x="700" y="118" text-anchor="middle" class="n-title">④ Risk Score</text><text x="700" y="136" text-anchor="middle" class="n-sub">weighted</text><text x="700" y="150" text-anchor="middle" class="n-sub">composite</text>
+          <line x1="770" y1="130" x2="788" y2="130" class="edge" marker-end="url(#ra)"/>
+          <polygon points="790,130 835,90 880,130 835,170" class="n-rect"/><text x="835" y="126" text-anchor="middle" class="n-sub">LTV ok, employer</text><text x="835" y="139" text-anchor="middle" class="n-sub">verified?</text>
+          <line x1="870" y1="105" x2="898" y2="80" class="edge-a" marker-end="url(#ra)"/><text x="895" y="72" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="900" y="55" width="95" height="55" rx="6" class="n-rect n-data"/><text x="947" y="76" text-anchor="middle" class="n-title">risk_score,</text><text x="947" y="91" text-anchor="middle" class="n-title">flags</text>
+          <line x1="870" y1="155" x2="898" y2="180" class="edge-w" marker-end="url(#ra)"/><text x="895" y="195" class="lbl" fill="var(--warn)">no</text>
+          <rect x="900" y="170" width="95" height="55" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="900" y="170" width="4" height="55" fill="var(--a-human)"/><text x="947" y="191" text-anchor="middle" class="n-title">Escalate →</text><text x="947" y="206" text-anchor="middle" class="n-title">Human</text>
+        </svg>
+        <div class="diagram-cap">Fig. 15 — runs after Document Verification and Credit Assessment; never in isolation.</div>
+      </div>
+
+      <h3>5.5 &nbsp;Loan Decision</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 260" width="100%" role="img" aria-label="Loan decision agent workflow">
+          <defs><marker id="la" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="95" width="120" height="70" rx="6" class="n-rect n-data"/><text x="70" y="122" text-anchor="middle" class="n-title">all 3 agent</text><text x="70" y="138" text-anchor="middle" class="n-title">outputs</text>
+          <line x1="130" y1="130" x2="148" y2="130" class="edge" marker-end="url(#la)"/>
+          <rect x="150" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="150" y="85" width="4" height="90" fill="var(--a-dec)"/><text x="220" y="118" text-anchor="middle" class="n-title">① Draft Rationale</text><text x="220" y="136" text-anchor="middle" class="n-sub">LLM recommends</text><text x="220" y="150" text-anchor="middle" class="n-sub">outcome + terms</text>
+          <line x1="290" y1="130" x2="308" y2="130" class="edge" marker-end="url(#la)"/>
+          <rect x="310" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="310" y="85" width="4" height="90" fill="var(--a-dec)"/><text x="380" y="118" text-anchor="middle" class="n-title">② Weighted Score</text><text x="380" y="136" text-anchor="middle" class="n-sub">combine upstream</text><text x="380" y="150" text-anchor="middle" class="n-sub">confidences</text>
+          <line x1="450" y1="130" x2="468" y2="130" class="edge" marker-end="url(#la)"/>
+          <g class="n-infra"><rect x="470" y="85" width="140" height="90" rx="6"/><text x="540" y="118" text-anchor="middle" class="n-title">③ OPA Policy</text><text x="540" y="136" text-anchor="middle" class="n-sub">independent —</text><text x="540" y="150" text-anchor="middle" class="n-sub">can only veto</text></g>
+          <line x1="610" y1="130" x2="628" y2="130" class="edge" marker-end="url(#la)"/>
+          <rect x="630" y="85" width="140" height="90" rx="6" class="n-rect n-svc"/><rect x="630" y="85" width="4" height="90" fill="var(--a-dec)"/><text x="700" y="118" text-anchor="middle" class="n-title">④ Final Confidence</text><text x="700" y="136" text-anchor="middle" class="n-sub">min of all</text><text x="700" y="150" text-anchor="middle" class="n-sub">upstream scores</text>
+          <line x1="770" y1="130" x2="788" y2="130" class="edge" marker-end="url(#la)"/>
+          <polygon points="790,130 835,90 880,130 835,170" class="n-rect"/><text x="835" y="126" text-anchor="middle" class="n-sub">conf ≥ 0.75,</text><text x="835" y="139" text-anchor="middle" class="n-sub">policy pass?</text>
+          <line x1="870" y1="105" x2="898" y2="80" class="edge-a" marker-end="url(#la)"/><text x="895" y="72" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="900" y="55" width="95" height="55" rx="6" class="n-rect n-data"/><text x="947" y="76" text-anchor="middle" class="n-title">Decision</text><text x="947" y="91" text-anchor="middle" class="n-title">+ Terms</text>
+          <line x1="870" y1="155" x2="898" y2="180" class="edge-w" marker-end="url(#la)"/><text x="895" y="195" class="lbl" fill="var(--warn)">no</text>
+          <rect x="900" y="170" width="95" height="55" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="900" y="170" width="4" height="55" fill="var(--a-human)"/><text x="947" y="191" text-anchor="middle" class="n-title">Escalate →</text><text x="947" y="206" text-anchor="middle" class="n-title">Human</text>
+        </svg>
+        <div class="diagram-cap">Fig. 16 — OPA can downgrade or veto the LLM's recommendation; it can never approve past what policy allows.</div>
+      </div>
+
+      <h3>5.6 &nbsp;Human Review</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 1000 220" width="100%" role="img" aria-label="Human review agent workflow">
+          <defs><marker id="ha" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="80" width="130" height="60" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="10" y="80" width="4" height="60" fill="var(--a-human)"/><text x="75" y="105" text-anchor="middle" class="n-title">Escalated</text><text x="75" y="120" text-anchor="middle" class="n-title">Case Bundle</text>
+          <line x1="140" y1="110" x2="163" y2="110" class="edge" marker-end="url(#ha)"/>
+          <rect x="165" y="70" width="155" height="80" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="165" y="70" width="4" height="80" fill="var(--a-human)"/><text x="242" y="102" text-anchor="middle" class="n-title">① Assemble</text><text x="242" y="120" text-anchor="middle" class="n-sub">full evidence view,</text><text x="242" y="134" text-anchor="middle" class="n-sub">not just a summary</text>
+          <line x1="320" y1="110" x2="338" y2="110" class="edge" marker-end="url(#ha)"/>
+          <rect x="340" y="70" width="155" height="80" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="340" y="70" width="4" height="80" fill="var(--a-human)"/><text x="417" y="102" text-anchor="middle" class="n-title">② Enqueue</text><text x="417" y="120" text-anchor="middle" class="n-sub">underwriter queue,</text><text x="417" y="134" text-anchor="middle" class="n-sub">SLA 4h</text>
+          <line x1="495" y1="110" x2="513" y2="110" class="edge" marker-end="url(#ha)"/>
+          <rect x="515" y="70" width="155" height="80" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="515" y="70" width="4" height="80" fill="var(--a-human)"/><text x="592" y="102" text-anchor="middle" class="n-title">③ Underwriter</text><text x="592" y="120" text-anchor="middle" class="n-sub">reviews raw</text><text x="592" y="134" text-anchor="middle" class="n-sub">evidence</text>
+          <line x1="670" y1="110" x2="688" y2="110" class="edge" marker-end="url(#ha)"/>
+          <rect x="690" y="70" width="155" height="80" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="690" y="70" width="4" height="80" fill="var(--a-human)"/><text x="767" y="102" text-anchor="middle" class="n-title">④ Capture Verdict</text><text x="767" y="120" text-anchor="middle" class="n-sub">structured, same</text><text x="767" y="134" text-anchor="middle" class="n-sub">schema as agents</text>
+          <line x1="845" y1="110" x2="863" y2="110" class="edge" marker-end="url(#ha)"/>
+          <rect x="865" y="80" width="125" height="60" rx="6" class="n-rect n-data"/><text x="927" y="105" text-anchor="middle" class="n-title">Verdict →</text><text x="927" y="120" text-anchor="middle" class="n-title">Eval Set</text>
+        </svg>
+        <div class="diagram-cap">Fig. 17 — not autonomous: this node never decides, it only assembles and records. Its output is ground truth for §11 retraining.</div>
+      </div>
+
+      <h3>5.7 &nbsp;Confidence &amp; escalation, concretely</h3>
+      <pre>final_confidence = min(
+    model_self_reported_confidence,   # agent's own calibrated score
+    rule_based_confidence,            # deterministic penalties (data completeness, cross-source agreement)
+)
+
+escalate_to_human = (
+    final_confidence &lt; 0.75
+    OR fraud_signal_detected
+    OR sanctions_or_watchlist_hit
+    OR requested_amount &gt; policy.auto_approve_ceiling
+    OR policy_exception_required
+)</pre>
+      <p>Confidence is deliberately the <em>minimum</em> of two independent estimates, not an average — a single weak signal should pull the whole decision toward human review rather than being diluted out.</p>
+    </section>
+
+    <section id="s6">
+      <span class="eyebrow">06</span>
+      <h2>Data Design &amp; Schema</h2>
+
+      <h3>6.1 &nbsp;Data sources</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:38%"><col style="width:30%"><col style="width:32%"></colgroup>
+        <thead><tr><th>Source</th><th>Consumed by</th><th>Nature</th></tr></thead>
+        <tbody>
+          <tr><td>KYC documents (ID, address proof)</td><td>Document Verification</td><td>Uploaded file → OCR</td></tr>
+          <tr><td>Bank statements</td><td>Document Verification, Risk</td><td>Uploaded file → OCR / statement parser</td></tr>
+          <tr><td>Salary slips, tax returns, employment letters</td><td>Document Verification, Risk</td><td>Uploaded file → OCR</td></tr>
+          <tr><td>Guarantor documents</td><td>Document Verification</td><td>Uploaded file → OCR</td></tr>
+          <tr><td>Credit bureau report</td><td>Credit Assessment</td><td>External API, structured JSON</td></tr>
+          <tr><td>Employer registry / reliability feed</td><td>Risk Assessment</td><td>Internal or third-party API</td></tr>
+          <tr><td>Asset valuation feed</td><td>Risk Assessment</td><td>Internal or third-party API</td></tr>
+          <tr><td>Lending policy documents</td><td>Loan Decision (RAG)</td><td>Internal corpus, embedded into vector store</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>6.2 &nbsp;Entity-relationship diagram</h3>
+      <div class="diagram-wrap full">
+        <svg viewBox="0 0 940 380" width="100%" role="img" aria-label="Entity relationship diagram of the core schema, no crossing connectors">
+          <defs><marker id="ah6" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="var(--text-dim)"/></marker></defs>
+
+          <!-- top-routed connectors, kept clear of the row1→row2 fan-out below -->
+          <polyline points="96,45 96,25 470,25 470,45" class="edge" marker-end="url(#ah6)" fill="none"/><text x="283" y="20" text-anchor="middle" class="lbl">1—*</text>
+          <polyline points="96,45 96,12 844,12 844,45" class="edge" marker-end="url(#ah6)" fill="none"/><text x="700" y="9" text-anchor="middle" class="lbl">1—*</text>
+          <line x1="182" y1="109" x2="197" y2="109" class="edge" marker-end="url(#ah6)"/><text x="189" y="103" text-anchor="middle" class="lbl">N—1</text>
+          <line x1="556" y1="109" x2="571" y2="109" class="edge" marker-end="url(#ah6)"/><text x="563" y="103" text-anchor="middle" class="lbl">1—*</text>
+
+          <!-- fan-out, loan_applications → its child records -->
+          <line x1="470" y1="173" x2="96" y2="223" class="edge" marker-end="url(#ah6)"/>
+          <line x1="470" y1="173" x2="283" y2="223" class="edge" marker-end="url(#ah6)"/>
+          <line x1="470" y1="173" x2="470" y2="223" class="edge" marker-end="url(#ah6)"/><text x="486" y="200" text-anchor="middle" class="lbl">1—1</text>
+          <line x1="470" y1="173" x2="657" y2="223" class="edge" marker-end="url(#ah6)"/>
+          <line x1="470" y1="173" x2="844" y2="223" class="edge" marker-end="url(#ah6)"/>
+
+          <g font-size="10">
+          <!-- Row 1 -->
+          <rect x="10" y="45" width="172" height="128" rx="6" class="n-rect n-data"/><text x="96" y="63" text-anchor="middle" class="n-title" font-size="12">applicants</text>
+          <text x="20" y="81" class="n-sub">id • PK</text><text x="20" y="95" class="n-sub">full_name</text><text x="20" y="109" class="n-sub">dob</text><text x="20" y="123" class="n-sub">employer_id → FK</text><text x="20" y="137" class="n-sub">kyc_status</text><text x="20" y="151" class="n-sub">pii fields (enc)</text>
+
+          <rect x="197" y="45" width="172" height="128" rx="6" class="n-rect n-data"/><text x="283" y="63" text-anchor="middle" class="n-title" font-size="12">employers</text>
+          <text x="207" y="81" class="n-sub">id • PK</text><text x="207" y="95" class="n-sub">name</text><text x="207" y="109" class="n-sub">industry</text><text x="207" y="123" class="n-sub">risk_tier</text><text x="207" y="137" class="n-sub">verification_status</text>
+
+          <rect x="384" y="45" width="172" height="128" rx="6" class="n-rect n-data"/><rect x="384" y="45" width="4" height="128" fill="var(--accent)"/><text x="470" y="63" text-anchor="middle" class="n-title" font-size="12">loan_applications</text>
+          <text x="394" y="81" class="n-sub">id • PK</text><text x="394" y="95" class="n-sub">applicant_id → FK</text><text x="394" y="109" class="n-sub">product_type</text><text x="394" y="123" class="n-sub">requested_amount</text><text x="394" y="137" class="n-sub">status</text><text x="394" y="151" class="n-sub">created_at</text>
+
+          <rect x="571" y="45" width="172" height="128" rx="6" class="n-rect n-data"/><text x="657" y="63" text-anchor="middle" class="n-title" font-size="12">documents</text>
+          <text x="581" y="81" class="n-sub">id • PK</text><text x="581" y="95" class="n-sub">application_id → FK</text><text x="581" y="109" class="n-sub">doc_type</text><text x="581" y="123" class="n-sub">storage_uri</text><text x="581" y="137" class="n-sub">checksum</text>
+
+          <rect x="758" y="45" width="172" height="128" rx="6" class="n-rect n-data"/><text x="844" y="63" text-anchor="middle" class="n-title" font-size="12">credit_reports</text>
+          <text x="768" y="81" class="n-sub">id • PK</text><text x="768" y="95" class="n-sub">applicant_id → FK</text><text x="768" y="109" class="n-sub">bureau_name</text><text x="768" y="123" class="n-sub">score</text><text x="768" y="137" class="n-sub">report_json</text>
+
+          <!-- Row 2 -->
+          <rect x="10" y="223" width="172" height="128" rx="6" class="n-rect n-data"/><rect x="10" y="223" width="4" height="128" fill="var(--a-risk)"/><text x="96" y="241" text-anchor="middle" class="n-title" font-size="12">risk_assessments</text>
+          <text x="20" y="259" class="n-sub">id • PK</text><text x="20" y="273" class="n-sub">application_id → FK</text><text x="20" y="287" class="n-sub">ltv_ratio</text><text x="20" y="301" class="n-sub">lti_ratio</text><text x="20" y="315" class="n-sub">risk_score</text><text x="20" y="329" class="n-sub">risk_flags[]</text>
+
+          <rect x="197" y="223" width="172" height="128" rx="6" class="n-rect n-data"/><text x="283" y="241" text-anchor="middle" class="n-title" font-size="12">agent_runs</text>
+          <text x="207" y="259" class="n-sub">id • PK</text><text x="207" y="273" class="n-sub">application_id → FK</text><text x="207" y="287" class="n-sub">agent_name</text><text x="207" y="301" class="n-sub">confidence</text><text x="207" y="315" class="n-sub">model_name/version</text><text x="207" y="329" class="n-sub">status</text>
+
+          <rect x="384" y="223" width="172" height="128" rx="6" class="n-rect n-data"/><rect x="384" y="223" width="4" height="128" fill="var(--a-dec)"/><text x="470" y="241" text-anchor="middle" class="n-title" font-size="12">decisions</text>
+          <text x="394" y="259" class="n-sub">id • PK</text><text x="394" y="273" class="n-sub">application_id → FK</text><text x="394" y="287" class="n-sub">outcome</text><text x="394" y="301" class="n-sub">terms_json</text><text x="394" y="315" class="n-sub">decision_confidence</text><text x="394" y="329" class="n-sub">rationale</text>
+
+          <rect x="571" y="223" width="172" height="128" rx="6" class="n-rect n-data"/><rect x="571" y="223" width="4" height="128" fill="var(--a-human)"/><text x="657" y="241" text-anchor="middle" class="n-title" font-size="12">human_reviews</text>
+          <text x="581" y="259" class="n-sub">id • PK</text><text x="581" y="273" class="n-sub">application_id → FK</text><text x="581" y="287" class="n-sub">assigned_to</text><text x="581" y="301" class="n-sub">verdict</text><text x="581" y="315" class="n-sub">agrees_with_agent</text>
+
+          <rect x="758" y="223" width="172" height="128" rx="6" class="n-rect n-data"/><text x="844" y="241" text-anchor="middle" class="n-title" font-size="12">audit_log</text>
+          <text x="768" y="259" class="n-sub">id • PK</text><text x="768" y="273" class="n-sub">application_id → FK</text><text x="768" y="287" class="n-sub">event_type</text><text x="768" y="301" class="n-sub">actor</text><text x="768" y="315" class="n-sub">payload_json</text><text x="768" y="329" class="n-sub">partitioned/month</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">Fig. 6 — <code class="inline">loan_applications</code> is the hub; every agent writes its own append-only row, never mutates a shared blob.</div>
+      </div>
+
+      <h3>6.3 &nbsp;Representative DDL</h3>
+      <pre>CREATE TABLE applicants (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name        TEXT NOT NULL,
+    dob              DATE NOT NULL,
+    pan_number_enc   BYTEA NOT NULL,      -- AES-256, field-level encryption
+    phone_enc        BYTEA NOT NULL,
+    employer_id      UUID REFERENCES employers(id),
+    kyc_status       TEXT NOT NULL DEFAULT 'pending',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE loan_applications (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    applicant_id       UUID NOT NULL REFERENCES applicants(id),
+    product_type       TEXT NOT NULL,
+    requested_amount   NUMERIC(14,2) NOT NULL,
+    tenure_months      INT NOT NULL,
+    status             TEXT NOT NULL DEFAULT 'intake',
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE agent_runs (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_id    UUID NOT NULL REFERENCES loan_applications(id),
+    agent_name        TEXT NOT NULL,          -- doc_verification | credit_assessment | ...
+    input_state_ref   TEXT NOT NULL,          -- pointer into checkpoint store
+    output_json       JSONB NOT NULL,
+    confidence         NUMERIC(4,3) NOT NULL,
+    model_name        TEXT NOT NULL,          -- e.g. llama3.1:8b-instruct-q4
+    started_at        TIMESTAMPTZ NOT NULL,
+    completed_at      TIMESTAMPTZ,
+    status            TEXT NOT NULL           -- ok | retried | failed | escalated
+);
+
+CREATE TABLE audit_log (
+    id                BIGSERIAL,
+    application_id    UUID NOT NULL,
+    event_type        TEXT NOT NULL,
+    actor             TEXT NOT NULL,          -- agent name or human user id
+    payload_json      JSONB NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+) PARTITION BY RANGE (created_at);           -- monthly partitions, append-only, no UPDATE/DELETE grants</pre>
+
+      <h3>6.4 &nbsp;Storage strategy</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:16%"><col style="width:34%"><col style="width:50%"></colgroup>
+        <thead><tr><th>Store</th><th>Holds</th><th>Why this store</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mono">Postgres</span></td><td>Applicants, applications, agent runs, decisions, audit log</td><td>Transactional system of record; JSONB for flexible agent outputs; native partitioning for audit_log</td></tr>
+          <tr><td><span class="mono">Redis</span></td><td>Session/state cache, LangGraph checkpoints in flight, rate-limit counters</td><td>Sub-millisecond reads on the hot path between agent hops</td></tr>
+          <tr><td><span class="mono">pgvector / Qdrant</span></td><td>Policy documents, regulatory text, historical fraud patterns for similarity search</td><td>RAG lookups for the Decision agent's policy citations</td></tr>
+          <tr><td><span class="mono">MinIO / S3</span></td><td>Raw uploaded documents, encrypted at rest</td><td>Cheap, durable object storage; never queried directly by agents, only via signed URLs</td></tr>
+          <tr><td><span class="mono">Kafka / Redpanda</span></td><td>State-transition events, guardrail events</td><td>Decouples the pipeline from the audit/observability consumers; replayable</td></tr>
+          <tr><td><span class="mono">OpenSearch</span></td><td>Indexed audit log + traces</td><td>Full-text and faceted search for compliance and support investigations</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>6.5 &nbsp;Pipeline rule</h3>
+      <p><strong>Ingest → OCR/parse → normalize → feature store. Agents read only the feature store, never raw files.</strong> Keeps prompts small, PII exposure centrally controlled, and the pipeline replayable without re-running OCR (see Fig. 4).</p>
+    </section>
+
+    <section id="s7">
+      <span class="eyebrow">07</span>
+      <h2>Tech Stack</h2>
+      <p>Open-source, self-hostable, end to end — no applicant data ever needs to leave a VPC the organisation controls.</p>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:20%"><col style="width:42%"><col style="width:38%"></colgroup>
+        <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>LLM serving</td><td>Ollama, self-hosted GPU pool</td><td>Simple model management, runs quantised open models entirely in-VPC</td></tr>
+          <tr><td>Models</td><td>Llama 3.1 70B (decision agent), Llama 3.1 8B / Qwen2.5 7B (extraction-heavy agents), <span class="mono">nomic-embed-text</span> (embeddings)</td><td>Right-size model to task — reasoning-heavy vs. extraction-heavy</td></tr>
+          <tr><td>Agent orchestration</td><td>LangGraph + LangChain tool-calling</td><td>Explicit state graph, conditional edges, built-in Postgres checkpointing</td></tr>
+          <tr><td>Structured output</td><td>Pydantic</td><td>Hard schema validation on every agent output before it enters shared state</td></tr>
+          <tr><td>Guardrails</td><td>NeMo Guardrails / Guardrails-AI, Llama Guard, Presidio (PII detection)</td><td>Input/output filtering, PII redaction, jailbreak detection — all open-source</td></tr>
+          <tr><td>Policy engine</td><td>Open Policy Agent (OPA)</td><td>Codified, versioned lending policy, evaluated independently of the LLM</td></tr>
+          <tr><td>Tracing / evals</td><td>Langfuse</td><td>Per-call prompt/response/latency/cost tracing, open-source LLM observability</td></tr>
+          <tr><td>Backend services</td><td>FastAPI (Python), one service per agent</td><td>Async-native, Pydantic-native, easy to containerise independently</td></tr>
+          <tr><td>Event backbone</td><td>Kafka / Redpanda</td><td>Decouples pipeline stages, replayable audit stream, backpressure-friendly scaling</td></tr>
+          <tr><td>Primary datastore</td><td>PostgreSQL (+ pgvector)</td><td>Transactional system of record and vector search in one engine</td></tr>
+          <tr><td>Cache / hot state</td><td>Redis</td><td>Session state, LangGraph checkpoints in flight, rate limiting</td></tr>
+          <tr><td>Object storage</td><td>MinIO (S3-compatible)</td><td>Encrypted document storage, self-hostable</td></tr>
+          <tr><td>Search / log index</td><td>OpenSearch</td><td>Audit log and trace search for compliance/support</td></tr>
+          <tr><td>API gateway</td><td>Kong / Apache APISIX</td><td>AuthN, rate limiting, routing — open-source</td></tr>
+          <tr><td>Identity &amp; access</td><td>Keycloak</td><td>OIDC/OAuth2, RBAC, SSO — open-source IAM</td></tr>
+          <tr><td>Secrets</td><td>HashiCorp Vault</td><td>Centralised secret storage and rotation for service credentials/API keys</td></tr>
+          <tr><td>Containers / orchestration</td><td>Docker, Kubernetes, Helm</td><td>Independent scaling and deployment per agent service</td></tr>
+          <tr><td>IaC</td><td>Terraform</td><td>Reproducible cloud or on-prem infra</td></tr>
+          <tr><td>Metrics / dashboards</td><td>Prometheus, Grafana, OpenTelemetry</td><td>Standard open-source observability stack</td></tr>
+          <tr><td>Underwriter UI</td><td>React + TypeScript, Next.js</td><td>Human review console, case-file viewer</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section id="s8">
+      <span class="eyebrow">08</span>
+      <h2>Orchestration Layer</h2>
+      <p>Agents never call each other directly. Every read and write goes through one shared, typed, versioned state object owned by the orchestrator — this is what keeps the audit trail complete and lets any single agent be replaced without touching the others.</p>
+
+      <h3>8.1 &nbsp;Shared state shape</h3>
+      <pre>class LoanState(TypedDict):
+    application_id: str
+    verified_fields: dict | None        # written by doc_verification
+    doc_confidence: float | None
+    credit_profile: dict | None         # written by credit_assessment
+    credit_confidence: float | None
+    risk_profile: dict | None           # written by risk_assessment
+    risk_confidence: float | None
+    decision: dict | None               # written by loan_decision
+    decision_confidence: float | None
+    hard_stop_flags: list[str]
+    escalated: bool
+    trace_id: str
+
+graph = StateGraph(LoanState)
+graph.add_node("doc_verification", doc_verification_node)
+graph.add_node("credit_assessment", credit_assessment_node)
+graph.add_node("risk_assessment", risk_assessment_node)
+graph.add_node("loan_decision", loan_decision_node)
+graph.add_node("human_review", human_review_node)
+
+graph.add_edge("doc_verification", "credit_assessment")
+graph.add_edge("credit_assessment", "risk_assessment")
+graph.add_edge("risk_assessment", "loan_decision")
+graph.add_conditional_edges(
+    "loan_decision",
+    lambda s: "human_review" if needs_escalation(s) else END,
+)
+graph.add_edge("human_review", END)
+
+app = graph.compile(checkpointer=PostgresSaver(conn))</pre>
+
+      <h3>8.2 &nbsp;Task routing &amp; state management</h3>
+      <ul>
+        <li><strong>Single writer per field</strong> — no two agents race on the same key.</li>
+        <li><strong>Checkpoint every node</strong> — a crash resumes, it doesn't restart.</li>
+        <li><strong>Retry once, then escalate</strong> — schema failure or timeout (20s SLA) both follow this path.</li>
+      </ul>
+
+      <h3>8.3 &nbsp;Inter-agent communication protocol</h3>
+      <p>Read <code class="inline">LoanState</code> → call tools/model → return partial update → orchestrator validates + merges → publish to <code class="inline">loan.state.events</code> (Kafka). That one topic feeds both <code class="inline">audit_log</code> and observability — one event stream, not two systems kept in sync by hand.</p>
+    </section>
+
+    <section id="s9">
+      <span class="eyebrow">09</span>
+      <h2>Guardrails</h2>
+      <p>Every single agent call — not just the final decision — passes through the same guardrail pipeline. Nothing an agent produces reaches shared state unfiltered.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1000 250" width="100%" role="img" aria-label="Guardrail pipeline wrapping every agent call">
+          <defs>
+            <marker id="ah7" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker>
+            <marker id="ah7a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/></marker>
+            <marker id="ah7w" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--warn)"/></marker>
+          </defs>
+          <rect x="10" y="85" width="90" height="50" rx="6" class="n-rect n-data"/><text x="55" y="107" text-anchor="middle" class="n-title">Raw Input</text><text x="55" y="122" text-anchor="middle" class="n-sub">docs / text</text>
+          <line x1="100" y1="110" x2="113" y2="110" class="edge" marker-end="url(#ah7)"/>
+
+          <rect x="115" y="48" width="170" height="124" rx="6" class="n-rect"/><rect x="115" y="48" width="4" height="124" fill="var(--warn)"/>
+          <text x="200" y="68" text-anchor="middle" class="n-title">Input Guardrails</text>
+          <text x="200" y="90" text-anchor="middle" class="n-sub">PII detect</text>
+          <text x="200" y="105" text-anchor="middle" class="n-sub">+ redact</text>
+          <text x="200" y="125" text-anchor="middle" class="n-sub">injection scan</text>
+          <text x="200" y="145" text-anchor="middle" class="n-sub">file / size check</text>
+          <line x1="285" y1="110" x2="298" y2="110" class="edge" marker-end="url(#ah7)"/>
+
+          <rect x="300" y="70" width="120" height="80" rx="6" class="n-rect n-svc"/><text x="360" y="103" text-anchor="middle" class="n-title">Agent Core</text><text x="360" y="120" text-anchor="middle" class="n-sub">Ollama model</text><text x="360" y="134" text-anchor="middle" class="n-sub">call</text>
+          <line x1="420" y1="110" x2="433" y2="110" class="edge" marker-end="url(#ah7)"/>
+
+          <rect x="435" y="48" width="170" height="124" rx="6" class="n-rect"/><rect x="435" y="48" width="4" height="124" fill="var(--critical)"/>
+          <text x="520" y="68" text-anchor="middle" class="n-title">Output Guardrails</text>
+          <text x="520" y="90" text-anchor="middle" class="n-sub">schema check</text>
+          <text x="520" y="108" text-anchor="middle" class="n-sub">citation match</text>
+          <text x="520" y="126" text-anchor="middle" class="n-sub">vs. source data</text>
+          <text x="520" y="146" text-anchor="middle" class="n-sub">content classifier</text>
+          <line x1="605" y1="110" x2="618" y2="110" class="edge" marker-end="url(#ah7)"/>
+
+          <rect x="620" y="70" width="120" height="80" rx="6" class="n-rect n-infra" style="fill:var(--cat-infra);stroke:var(--cat-infra)"/><text x="680" y="103" text-anchor="middle" class="n-title" fill="var(--cat-infra-text)">OPA Policy</text><text x="680" y="120" text-anchor="middle" class="n-sub" fill="var(--cat-infra-text)">deterministic</text><text x="680" y="134" text-anchor="middle" class="n-sub" fill="var(--cat-infra-text)">veto only</text>
+          <line x1="740" y1="110" x2="753" y2="110" class="edge" marker-end="url(#ah7)"/>
+
+          <polygon points="800,60 860,110 800,160 740,110" class="n-rect"/><text x="800" y="106" text-anchor="middle" class="n-sub">all checks</text><text x="800" y="120" text-anchor="middle" class="n-sub">pass?</text>
+
+          <line x1="835" y1="85" x2="875" y2="55" class="edge-a" marker-end="url(#ah7a)"/><text x="850" y="52" class="lbl" fill="var(--accent)">yes</text>
+          <rect x="880" y="30" width="110" height="55" rx="6" class="n-rect n-data"/><text x="935" y="52" text-anchor="middle" class="n-title">Merge to</text><text x="935" y="67" text-anchor="middle" class="n-title">State</text>
+
+          <line x1="835" y1="135" x2="875" y2="165" class="edge-w" marker-end="url(#ah7w)"/><text x="850" y="180" class="lbl" fill="var(--warn)">no</text>
+          <rect x="880" y="140" width="110" height="65" rx="6" class="n-rect" style="stroke:var(--a-human)"/><rect x="880" y="140" width="4" height="65" fill="var(--a-human)"/><text x="935" y="163" text-anchor="middle" class="n-title">Retry once,</text><text x="935" y="178" text-anchor="middle" class="n-title">then Human</text>
+        </svg>
+        <div class="diagram-cap">Fig. 7 — Guardrail pipeline. This wraps <em>every</em> agent call in the graph — the diagram in Fig. 3 is what happens inside each of the "node" boxes.</div>
+      </div>
+
+      <h3>9.1 &nbsp;Input guardrails</h3>
+      <ul>
+        <li><strong>PII redact</strong> (Presidio) before anything is logged or prompted.</li>
+        <li><strong>Injection scan</strong> — covers OCR'd text too (hidden PDF instructions).</li>
+        <li><strong>File checks</strong> — type, size, malware, before OCR.</li>
+      </ul>
+
+      <h3>9.2 &nbsp;Output guardrails</h3>
+      <ul>
+        <li><strong>Schema check</strong> — invalid JSON is rejected, not patched.</li>
+        <li><strong>Citation match</strong> — cited numbers diffed against source rows; mismatch = hard reject.</li>
+        <li><strong>Content classifier</strong> (Llama Guard) + numeric bounds at the type level.</li>
+      </ul>
+
+      <h3>9.3 &nbsp;Business-rule guardrails</h3>
+      <p>Deterministic, git-versioned OPA policy, not LLM judgment. Runs after every Loan Decision output; can only <strong>downgrade or veto</strong> (DTI cap, no protected attributes, mandatory review above a threshold) — never upgrade past what policy allows.</p>
+
+      <h3>9.4 &nbsp;Human-in-the-loop thresholds</h3>
+      <p>Escalate when: confidence &lt; 0.75 · fraud / watchlist flag · amount above auto-approve ceiling · thin credit file · agents disagree.</p>
+
+      <h3>9.5 &nbsp;Audit &amp; explainability</h3>
+      <p>Every decision — automated or human — keeps its full reasoning chain, citations, and fired guardrails in the immutable <code class="inline">audit_log</code>, retained 7 years. Nothing is deleted or overwritten; corrections are new rows.</p>
+    </section>
+
+    <section id="s10">
+      <span class="eyebrow">10</span>
+      <h2>Security &amp; Privacy</h2>
+      <p>The trust boundaries below are the reason this system is built on self-hosted Ollama rather than a third-party model API: applicant PII never has to leave a VPC the organisation controls, at any stage, including inference.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 950 300" width="100%" role="img" aria-label="Trust zone diagram from public internet to encrypted data store">
+          <defs><marker id="ah8" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+
+          <rect x="10" y="40" width="140" height="230" rx="6" fill="var(--bg-panel-2)" stroke="var(--line)"/><text x="80" y="30" text-anchor="middle" class="lbl">PUBLIC</text>
+          <rect x="165" y="40" width="140" height="230" rx="6" fill="var(--bg-panel-2)" stroke="var(--line)"/><text x="235" y="30" text-anchor="middle" class="lbl">DMZ</text>
+          <rect x="320" y="40" width="290" height="230" rx="6" fill="var(--bg-panel-2)" stroke="var(--warn)" stroke-width="1.3"/><text x="465" y="30" text-anchor="middle" class="lbl" fill="var(--warn)">APPLICATION — private VPC, mTLS</text>
+          <rect x="625" y="40" width="150" height="230" rx="6" fill="var(--bg-panel-2)" stroke="var(--line)"/><text x="700" y="30" text-anchor="middle" class="lbl">MODEL — no egress</text>
+          <rect x="790" y="40" width="150" height="230" rx="6" fill="var(--bg-panel-2)" stroke="var(--critical)" stroke-width="1.3"/><text x="865" y="30" text-anchor="middle" class="lbl" fill="var(--critical)">DATA — most restricted</text>
+
+          <rect x="20" y="98" width="120" height="50" rx="6" class="n-rect"/><text x="80" y="120" text-anchor="middle" class="n-title">Client</text><text x="80" y="135" text-anchor="middle" class="n-sub">web / mobile</text>
+          <rect x="175" y="62" width="120" height="46" rx="6" class="n-rect"/><text x="235" y="82" text-anchor="middle" class="n-title">API Gateway</text><text x="235" y="96" text-anchor="middle" class="n-sub">+ WAF</text>
+          <rect x="175" y="146" width="120" height="46" rx="6" class="n-rect"/><text x="235" y="166" text-anchor="middle" class="n-title">Keycloak</text><text x="235" y="180" text-anchor="middle" class="n-sub">OIDC / RBAC</text>
+
+          <rect x="335" y="56" width="260" height="40" rx="5" class="n-rect"/><text x="465" y="80" text-anchor="middle" class="n-title">Orchestrator</text>
+          <rect x="335" y="110" width="260" height="40" rx="5" class="n-rect"/><text x="465" y="134" text-anchor="middle" class="n-title">5 Agent Services</text>
+          <rect x="335" y="164" width="260" height="40" rx="5" class="n-rect"/><rect x="335" y="164" width="4" height="40" fill="var(--warn)"/><text x="465" y="188" text-anchor="middle" class="n-title">PII Tokenize Gate</text>
+          <rect x="335" y="218" width="260" height="40" rx="5" class="n-rect"/><text x="465" y="242" text-anchor="middle" class="n-title">Guardrails + OPA</text>
+
+          <rect x="640" y="128" width="120" height="60" rx="6" class="n-rect"/><text x="700" y="153" text-anchor="middle" class="n-title">Ollama Pool</text><text x="700" y="168" text-anchor="middle" class="n-sub">tokenized only</text>
+
+          <rect x="800" y="58" width="130" height="42" rx="5" class="n-rect"/><text x="865" y="83" text-anchor="middle" class="n-title">Postgres</text>
+          <rect x="800" y="114" width="130" height="42" rx="5" class="n-rect"/><text x="865" y="139" text-anchor="middle" class="n-title">MinIO</text>
+          <rect x="800" y="170" width="130" height="42" rx="5" class="n-rect"/><text x="865" y="195" text-anchor="middle" class="n-title">Vault</text>
+          <rect x="800" y="226" width="130" height="42" rx="5" class="n-rect"/><text x="865" y="251" text-anchor="middle" class="n-title">Kafka</text>
+
+          <line x1="140" y1="123" x2="163" y2="98" class="edge" marker-end="url(#ah8)"/><text x="152" y="90" class="lbl">TLS 1.3</text>
+          <line x1="295" y1="85" x2="333" y2="76" class="edge" marker-end="url(#ah8)"/><text x="298" y="68" class="lbl">OIDC token</text>
+          <line x1="595" y1="130" x2="638" y2="150" class="edge" marker-end="url(#ah8)"/><text x="597" y="118" class="lbl">mTLS, tokenized</text>
+          <polyline points="595,238 775,238 775,79 798,79" class="edge" marker-end="url(#ah8)" fill="none"/><text x="608" y="251" class="lbl">state → AES-256 at rest</text>
+        </svg>
+        <div class="diagram-cap">Fig. 8 — Trust zones. PII is tokenised at the Application/Model boundary — the LLM never sees a raw PAN, phone number, or address, only reference tokens it can't resolve.</div>
+      </div>
+
+      <h3>10.1 &nbsp;Data privacy</h3>
+      <ul>
+        <li><strong>AES-256</strong> (KMS keys) on SSN/PAN/phone/address, at rest and in objects.</li>
+        <li><strong>TLS 1.3</strong> external, <strong>mTLS</strong> internal.</li>
+        <li><strong>Tokenised before the LLM</strong> — raw PII never enters model context.</li>
+      </ul>
+
+      <h3>10.2 &nbsp;Access control</h3>
+      <p>Keycloak, short-lived OIDC tokens. Roles: <span class="mono">underwriter</span> · <span class="mono">senior_underwriter</span> · <span class="mono">auditor</span> · <span class="mono">admin</span> · <span class="mono">applicant</span> (read-only). Every service account is least-privilege.</p>
+
+      <h3>10.3 &nbsp;Regulatory compliance</h3>
+      <p>Fair-lending (no protected attributes, quarterly disparate-impact review) · data-subject rights (access/correction/erasure via the audit pipeline) · SOC 2–style change management.</p>
+
+      <h3>10.4 &nbsp;Model security</h3>
+      <p>Ollama never exposed publicly; per-request context isolation, gateway rate limiting, and a red-team suite (injection, jailbreak, exfiltration) before every model-version promotion.</p>
+    </section>
+
+    <section id="s11">
+      <span class="eyebrow">11</span>
+      <h2>MLOps / DevAgentOps Architecture</h2>
+      <p>Prompts and models are versioned artifacts, not editable text — every change goes through the same gate before it can touch a real application.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1060 235" width="100%" role="img" aria-label="MLOps feedback loop from data collection to production and back">
+          <defs><marker id="ah9" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="72" y="83" text-anchor="middle" class="n-title">Data</text><text x="72" y="99" text-anchor="middle" class="n-sub">golden set +</text><text x="72" y="112" text-anchor="middle" class="n-sub">prod logs</text>
+          <line x1="135" y1="89" x2="159" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="161" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="223" y="83" text-anchor="middle" class="n-title">Eval Harness</text><text x="223" y="99" text-anchor="middle" class="n-sub">accuracy,</text><text x="223" y="112" text-anchor="middle" class="n-sub">calibration</text>
+          <line x1="286" y1="89" x2="310" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="312" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="374" y="83" text-anchor="middle" class="n-title">Model Registry</text><text x="374" y="99" text-anchor="middle" class="n-sub">prompt + model</text><text x="374" y="112" text-anchor="middle" class="n-sub">version pin</text>
+          <line x1="437" y1="89" x2="461" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="463" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="525" y="83" text-anchor="middle" class="n-title">CI/CD Gate</text><text x="525" y="99" text-anchor="middle" class="n-sub">lint, unit test,</text><text x="525" y="112" text-anchor="middle" class="n-sub">eval pass</text>
+          <line x1="588" y1="89" x2="612" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="614" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="676" y="83" text-anchor="middle" class="n-title">Shadow / Canary</text><text x="676" y="99" text-anchor="middle" class="n-sub">5% → 25%</text><text x="676" y="112" text-anchor="middle" class="n-sub">traffic</text>
+          <line x1="739" y1="89" x2="763" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="765" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="827" y="83" text-anchor="middle" class="n-title">Production</text><text x="827" y="99" text-anchor="middle" class="n-sub">100%</text><text x="827" y="112" text-anchor="middle" class="n-sub">traffic</text>
+          <line x1="890" y1="89" x2="914" y2="89" class="edge" marker-end="url(#ah9)"/>
+          <rect x="916" y="55" width="125" height="68" rx="6" class="n-rect"/><text x="978" y="83" text-anchor="middle" class="n-title">Monitoring</text><text x="978" y="99" text-anchor="middle" class="n-sub">drift,</text><text x="978" y="112" text-anchor="middle" class="n-sub">escalation rate</text>
+
+          <line x1="978" y1="123" x2="978" y2="192" class="edge"/>
+          <line x1="978" y1="192" x2="72" y2="192" class="edge"/>
+          <line x1="72" y1="192" x2="72" y2="125" class="edge" marker-end="url(#ah9)"/>
+          <text x="525" y="216" text-anchor="middle" class="lbl">feedback: human-review verdicts + disagreement cases relabel the golden set</text>
+        </svg>
+        <div class="diagram-cap">Fig. 9 — Prompt/model change pipeline. Nothing skips the Eval Harness gate — not even a one-line prompt wording change.</div>
+      </div>
+
+      <h3>11.1 &nbsp;Model lifecycle</h3>
+      <p>Golden eval set of outcome-known applications, held out. Prompts live in git; every change re-runs the eval harness (accuracy, calibration / Brier score, guardrail trigger rate). Model Registry pins exact Ollama tag + quantisation per agent, per environment.</p>
+
+      <h3>11.2 &nbsp;CI/CD for agents</h3>
+      <p>PR → lint + schema check → unit tests (mocked LLM) → eval harness → staging → shadow → canary 5% → full rollout. Any regression blocks promotion; rollback is a registry pin change, not a redeploy.</p>
+
+      <h3>11.3 &nbsp;Observability</h3>
+      <p>Langfuse traces every call (prompt, output, latency, cost). Prometheus/Grafana track p50/p95 latency, escalation rate, and guardrail trigger rate, with drift alerting.</p>
+
+      <h3>11.4 &nbsp;Feedback loop</h3>
+      <p>Every human verdict becomes a labelled example. Disagreement cases are reviewed weekly, prioritised into the next eval set, and periodically into a LoRA fine-tuning pass.</p>
+    </section>
+
+    <section id="s12">
+      <span class="eyebrow">12</span>
+      <h2>Deployment &amp; Infrastructure</h2>
+      <p>One Kubernetes cluster, one microservice per agent, one GPU node pool for inference, and a stateful-services tier that can run self-hosted end to end.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 960 385" width="100%" role="img" aria-label="Kubernetes deployment diagram">
+          <defs><marker id="ah10" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="30" width="940" height="340" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="5 4"/>
+          <text x="24" y="22" class="lbl">KUBERNETES CLUSTER</text>
+
+          <rect x="30" y="50" width="140" height="44" rx="6" class="n-rect"/><text x="100" y="76" text-anchor="middle" class="n-title">Ingress / LB</text>
+          <line x1="170" y1="72" x2="188" y2="72" class="edge" marker-end="url(#ah10)"/>
+          <rect x="190" y="50" width="140" height="44" rx="6" class="n-rect"/><text x="260" y="76" text-anchor="middle" class="n-title">API Gateway Pod</text>
+
+          <line x1="260" y1="94" x2="260" y2="112" class="edge" marker-end="url(#ah10)"/>
+          <text x="30" y="112" class="lbl">Deployments (each with its own HPA, 2–N replicas)</text>
+
+          <rect x="30" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="30" y="118" width="4" height="58" fill="var(--a-orch)"/><text x="100" y="140" text-anchor="middle" class="n-title">orchestrator</text><text x="100" y="155" text-anchor="middle" class="n-sub">-svc</text>
+          <rect x="182" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="182" y="118" width="4" height="58" fill="var(--a-doc)"/><text x="252" y="140" text-anchor="middle" class="n-title">doc-verify</text><text x="252" y="155" text-anchor="middle" class="n-sub">-svc</text>
+          <rect x="334" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="334" y="118" width="4" height="58" fill="var(--a-credit)"/><text x="404" y="140" text-anchor="middle" class="n-title">credit-assess</text><text x="404" y="155" text-anchor="middle" class="n-sub">-svc</text>
+          <rect x="486" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="486" y="118" width="4" height="58" fill="var(--a-risk)"/><text x="556" y="140" text-anchor="middle" class="n-title">risk-assess</text><text x="556" y="155" text-anchor="middle" class="n-sub">-svc</text>
+          <rect x="638" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="638" y="118" width="4" height="58" fill="var(--a-dec)"/><text x="708" y="140" text-anchor="middle" class="n-title">decision</text><text x="708" y="155" text-anchor="middle" class="n-sub">-svc</text>
+          <rect x="790" y="118" width="140" height="58" rx="6" class="n-rect"/><rect x="790" y="118" width="4" height="58" fill="var(--a-human)"/><text x="860" y="140" text-anchor="middle" class="n-title">human-review</text><text x="860" y="155" text-anchor="middle" class="n-sub">-svc + UI</text>
+
+          <line x1="480" y1="176" x2="480" y2="196" class="edge" marker-end="url(#ah10)"/>
+          <rect x="30" y="200" width="900" height="55" rx="6" class="n-rect"/><text x="480" y="222" text-anchor="middle" class="n-title">GPU Node Pool — Ollama StatefulSet</text><text x="480" y="238" text-anchor="middle" class="n-sub">tainted / dedicated nodes, cluster-autoscaled with demand</text>
+
+          <line x1="480" y1="255" x2="480" y2="273" class="edge" marker-end="url(#ah10)"/>
+          <text x="30" y="273" class="lbl">Stateful services (managed or self-hosted)</text>
+
+          <rect x="30" y="280" width="170" height="58" rx="6" class="n-rect"/><text x="115" y="304" text-anchor="middle" class="n-title">Postgres HA</text><text x="115" y="319" text-anchor="middle" class="n-sub">Patroni + replicas</text>
+          <rect x="212" y="280" width="170" height="58" rx="6" class="n-rect"/><text x="297" y="304" text-anchor="middle" class="n-title">Redis Cluster</text><text x="297" y="319" text-anchor="middle" class="n-sub">cache + state</text>
+          <rect x="394" y="280" width="170" height="58" rx="6" class="n-rect"/><text x="479" y="304" text-anchor="middle" class="n-title">Kafka / Redpanda</text><text x="479" y="319" text-anchor="middle" class="n-sub">event backbone</text>
+          <rect x="576" y="280" width="170" height="58" rx="6" class="n-rect"/><text x="661" y="304" text-anchor="middle" class="n-title">MinIO</text><text x="661" y="319" text-anchor="middle" class="n-sub">object storage</text>
+          <rect x="758" y="280" width="172" height="58" rx="6" class="n-rect"/><text x="844" y="304" text-anchor="middle" class="n-title">Keycloak</text><text x="844" y="319" text-anchor="middle" class="n-sub">identity</text>
+        </svg>
+        <div class="diagram-cap">Fig. 10 — Everything inside the dashed boundary is deployable via one Helm umbrella chart; the GPU pool is the only part that needs specialised nodes.</div>
+      </div>
+
+      <h3>12.1 &nbsp;Microservices</h3>
+      <p class="mono" style="font-size:.85rem">api-gateway · orchestrator-svc · doc-verification-svc · credit-assessment-svc · risk-assessment-svc · decision-svc · human-review-svc (+ UI) · guardrails-svc · audit-svc · ollama-inference-pool</p>
+
+      <h3>12.2 &nbsp;Kubernetes &amp; IaC</h3>
+      <p>One Deployment + HPA per service. Ollama is a StatefulSet on a tainted GPU node pool, so CPU services never compete for GPU scheduling. Helm per service, Terraform for VPC/KMS/Postgres (or Patroni for fully self-hosted).</p>
+
+      <h3>12.3 &nbsp;Open-source-first hosting</h3>
+      <p>The full stack runs self-hosted on-prem or in a private VPC on any cloud — predictable cost, full data residency. Inference can burst to a rented GPU cloud at peak without ever routing data through a closed API.</p>
+
+      <h3>12.4 &nbsp;API gateway &amp; mesh</h3>
+      <p>Kong/APISIX at the edge, NGINX/Envoy ingress. A service mesh (Istio/Linkerd) is worth adding past ~8–10 services for uniform mTLS/retries — deliberately not day-one.</p>
+    </section>
+
+    <section id="s13">
+      <span class="eyebrow">13</span>
+      <h2>Scaling Plan — Path to 1M Applications / Year</h2>
+      <div class="grid2">
+        <div class="stat"><div class="v">~2,740 / day</div><div class="l">Average volume at 1M / year</div></div>
+        <div class="stat"><div class="v">~114 / hour</div><div class="l">Average hourly rate</div></div>
+        <div class="stat"><div class="v">~1,500 / hour</div><div class="l">Design target, sustained peak (~13x avg)</div></div>
+        <div class="stat"><div class="v">~3,000 / hour</div><div class="l">Burst headroom (festival / tax-season spikes)</div></div>
+      </div>
+
+      <h3>13.1 &nbsp;Current baseline (pilot)</h3>
+      <p>500–2,000 applications/month: one orchestrator replica, one pod per agent, one Postgres, one small Ollama node. Every scaling technique below is added only when metrics say it's needed.</p>
+
+      <h3>13.2 &nbsp;Where it breaks first</h3>
+      <p>LLM inference is GPU-bound — the first bottleneck, not the database. Second: synchronous request/response couples client latency to full-pipeline latency, so spikes degrade UX instead of just queueing.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 960 300" width="100%" role="img" aria-label="Scaling architecture with async queue and autoscaled worker pools">
+          <defs><marker id="ah11" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+          <rect x="10" y="110" width="120" height="50" rx="6" class="n-rect"/><text x="70" y="132" text-anchor="middle" class="n-title">Client</text><text x="70" y="147" text-anchor="middle" class="n-sub">web / partner API</text>
+          <line x1="130" y1="135" x2="148" y2="135" class="edge" marker-end="url(#ah11)"/>
+          <rect x="150" y="110" width="130" height="50" rx="6" class="n-rect"/><text x="215" y="132" text-anchor="middle" class="n-title">API Gateway</text><text x="215" y="147" text-anchor="middle" class="n-sub">202 Accepted (async)</text>
+          <line x1="280" y1="135" x2="298" y2="135" class="edge" marker-end="url(#ah11)"/>
+          <rect x="300" y="100" width="150" height="70" rx="6" class="n-rect"/><text x="375" y="126" text-anchor="middle" class="n-title">Kafka Work Queue</text><text x="375" y="141" text-anchor="middle" class="n-sub">per-stage topics</text><text x="375" y="156" text-anchor="middle" class="n-sub">backpressure-aware</text>
+
+          <line x1="450" y1="120" x2="468" y2="90" class="edge" marker-end="url(#ah11)"/>
+          <rect x="470" y="60" width="180" height="60" rx="6" class="n-rect"/><text x="560" y="82" text-anchor="middle" class="n-title">Agent Worker Pool</text><text x="560" y="97" text-anchor="middle" class="n-sub">KEDA autoscale on queue depth</text><text x="560" y="111" text-anchor="middle" class="n-sub">2 → 50 pods per agent</text>
+
+          <line x1="450" y1="150" x2="468" y2="165" class="edge" marker-end="url(#ah11)"/>
+          <rect x="470" y="150" width="180" height="50" rx="6" class="n-rect"/><text x="560" y="170" text-anchor="middle" class="n-title">Redis Cache</text><text x="560" y="185" text-anchor="middle" class="n-sub">bureau / employer lookups, TTL</text>
+
+          <line x1="650" y1="90" x2="668" y2="90" class="edge" marker-end="url(#ah11)"/>
+          <rect x="670" y="60" width="170" height="60" rx="6" class="n-rect"/><text x="755" y="82" text-anchor="middle" class="n-title">Ollama / vLLM Pool</text><text x="755" y="97" text-anchor="middle" class="n-sub">GPU autoscale group</text><text x="755" y="111" text-anchor="middle" class="n-sub">continuous batching</text>
+
+          <line x1="650" y1="175" x2="668" y2="175" class="edge" marker-end="url(#ah11)"/>
+          <rect x="670" y="150" width="170" height="60" rx="6" class="n-rect"/><text x="755" y="172" text-anchor="middle" class="n-title">Postgres</text><text x="755" y="187" text-anchor="middle" class="n-sub">primary + read replicas</text><text x="755" y="201" text-anchor="middle" class="n-sub">monthly-partitioned tables</text>
+
+          <line x1="560" y1="120" x2="560" y2="148" class="edge" stroke-dasharray="4 3"/>
+          <text x="380" y="220" class="lbl">state persisted externally (Redis/Postgres checkpointer) → any worker replica can pick up any application</text>
+        </svg>
+        <div class="diagram-cap">Fig. 11 — Same logical pipeline as Fig. 2, redrawn for scale: synchronous request/response becomes queue-fed, autoscaled worker pools.</div>
+      </div>
+
+      <h3>13.3 &nbsp;Horizontal scaling strategy</h3>
+      <ul>
+        <li><strong>Async + queued</strong> — <code class="inline">202 Accepted</code>, KEDA scales each agent on its own queue depth.</li>
+        <li><strong>Replicated, right-sized inference</strong> — autoscaled GPU pool; small models for extraction, big model only for decision.</li>
+        <li><strong>Cache + partition data</strong> — Redis for repeat bureau/employer lookups; monthly-partitioned Postgres tables.</li>
+        <li><strong>Stateless everywhere</strong> — checkpointed state means any replica resumes any application.</li>
+      </ul>
+
+      <h3>13.4 &nbsp;Directional cost comparison at 1M applications/year</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:32%"><col style="width:24%"><col style="width:30%"><col style="width:14%"></colgroup>
+        <thead><tr><th>Approach</th><th>Unit cost driver</th><th>Directional annual cost</th><th>Data leaves VPC?</th></tr></thead>
+        <tbody>
+          <tr><td>Closed third-party model API, per-token pricing</td><td>~6 LLM calls/application × avg tokens</td><td class="num">Scales linearly with volume — highest at 1M scale</td><td>Yes</td></tr>
+          <tr><td>Self-hosted Ollama, on-demand GPU cloud</td><td>GPU-hours, right-sized models</td><td class="num">Lower, still elastic</td><td>No</td></tr>
+          <tr><td>Self-hosted Ollama, owned/reserved GPU capacity</td><td>Fixed hardware + amortised cost</td><td class="num">Lowest at sustained 1M-scale volume</td><td>No</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="callout"><strong>Note:</strong> this table stays directional because GPU pricing is negotiated per deal — §2.9 has the concrete, validated unit economics (~₹4.50 COGS per application) from a mid-market client model. That figure was built on a standard cloud stack (AWS ECS, Pinecone) for illustration; swapping in this report's self-hosted stack (Ollama, pgvector, Kubernetes — §7, §12.3) removes per-token frontier-API and proprietary vector-DB costs entirely, so ~₹4.50 is a ceiling, not a floor.</p>
+    </section>
+
+    <section id="s14">
+      <span class="eyebrow">14</span>
+      <h2>Testing &amp; Evaluation Strategy</h2>
+
+      <h3>14.1 &nbsp;Per-agent evaluation</h3>
+      <p>Each agent graded on its own golden set — extraction accuracy, score-band accuracy, flag precision/recall — plus a Brier score for confidence calibration.</p>
+
+      <h3>14.2 &nbsp;End-to-end evaluation</h3>
+      <p>Full pipeline run against held-out, outcome-known applications: outcome accuracy and agreement rate vs. the human underwriters who originally decided them.</p>
+
+      <h3>14.3 &nbsp;Shadow mode → canary → full rollout</h3>
+      <p>Shadow mode alongside the manual process for several weeks (no effect on applicants) → canary 5% (human-reviewed safety net) → 25% → full, with automatic rollback if agreement rate drops.</p>
+    </section>
+
+    <section id="s15">
+      <span class="eyebrow">15</span>
+      <h2>Risks &amp; Mitigations</h2>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:40%"><col style="width:60%"></colgroup>
+        <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Hallucinated financial figures in a decision rationale</td><td>Output guardrail cross-checks every cited number against the source-of-truth row; mismatch is a hard rejection, not a warning (§9.2)</td></tr>
+          <tr><td>Model bias / disparate impact on protected classes</td><td>Protected attributes excluded from all agent inputs; quarterly fairness audit; OPA can veto but never introduce bias (§9.3, §10.3)</td></tr>
+          <tr><td>Prompt injection via malicious content embedded in an uploaded document</td><td>Sandboxed OCR extraction, content sanitisation before anything enters a prompt, injection-pattern scanning (§9.1)</td></tr>
+          <tr><td>Automation complacency — human reviewers rubber-stamping agent output</td><td>Review UI surfaces raw evidence, not just the agent's summary; periodic sampling audit of human-agreed cases</td></tr>
+          <tr><td>Orchestrator as a single point of failure</td><td>Stateless, externally checkpointed design; multi-replica by default (§8.2, §13.3)</td></tr>
+          <tr><td>Model drift when a new open-source model version is adopted</td><td>Eval harness gate in CI blocks any promotion that regresses golden-set accuracy or calibration (§11.2)</td></tr>
+          <tr><td>GPU capacity shortfall at peak demand</td><td>Burst-to-cloud GPU strategy, per-agent model right-sizing (§13.3)</td></tr>
+          <tr><td>Regulatory challenge to an automated decision</td><td>100% of decisions carry a full evidence + reasoning trace, retained per compliance policy (§9.5, §10.3)</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section id="s16">
+      <span class="eyebrow">16</span>
+      <h2>Phased Implementation Roadmap</h2>
+      <div class="panel">
+        <div class="phase"><span class="ph">Phase 0</span><div><h4>Discovery &amp; data readiness</h4><p>Curate the golden evaluation set, map current policy rules into OPA-codifiable form, confirm document/bureau/employer data access.</p></div></div>
+        <div class="phase"><span class="ph">Phase 1</span><div><h4>Pilot — 3 core agents, shadow mode</h4><p>Document Verification, Credit Assessment, Risk Assessment running in shadow alongside manual process; no real decisions affected.</p></div></div>
+        <div class="phase"><span class="ph">Phase 2</span><div><h4>Decision agent + guardrails hardening</h4><p>Add Loan Decision and Human Review agents; land the full guardrail pipeline (§9) and security boundary (§10) before any canary traffic.</p></div></div>
+        <div class="phase"><span class="ph">Phase 3</span><div><h4>Canary → production cutover</h4><p>5% → 25% → 100% real traffic with rollback triggers on agreement-rate regression; underwriter console live for escalations.</p></div></div>
+        <div class="phase"><span class="ph">Phase 4</span><div><h4>Scale-out to the 1M/yr target</h4><p>Introduce async queueing, KEDA autoscaling, read replicas, and model right-sizing as §13 metrics warrant — not before.</p></div></div>
+        <div class="phase"><span class="ph">Phase 5</span><div><h4>Continuous improvement</h4><p>Weekly disagreement review, periodic fine-tuning, quarterly fairness audit, ongoing eval-set expansion.</p></div></div>
+      </div>
+    </section>
+
+    <section id="s17">
+      <span class="eyebrow">17</span>
+      <h2>Appendix</h2>
+
+      <h3>17.1 &nbsp;Glossary</h3>
+      <div class="panel scrollbox">
+      <table>
+        <colgroup><col style="width:18%"><col style="width:82%"></colgroup>
+        <tbody>
+          <tr><td class="mono">DTI</td><td>Debt-to-income ratio</td></tr>
+          <tr><td class="mono">LTV / LTI</td><td>Loan-to-value / loan-to-income ratio</td></tr>
+          <tr><td class="mono">KYC</td><td>Know Your Customer — identity verification</td></tr>
+          <tr><td class="mono">STP</td><td>Straight-through processing — no human touch required</td></tr>
+          <tr><td class="mono">RAG</td><td>Retrieval-augmented generation — grounding model output in retrieved documents</td></tr>
+          <tr><td class="mono">HPA</td><td>Horizontal Pod Autoscaler (Kubernetes)</td></tr>
+          <tr><td class="mono">KEDA</td><td>Kubernetes Event-driven Autoscaling — scales on queue depth, not just CPU</td></tr>
+          <tr><td class="mono">mTLS</td><td>Mutual TLS — both sides of a connection authenticate each other</td></tr>
+          <tr><td class="mono">OPA</td><td>Open Policy Agent — policy-as-code engine</td></tr>
+          <tr><td class="mono">Brier score</td><td>A measure of how well-calibrated a probability estimate is</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>17.2 &nbsp;Open-source components referenced</h3>
+      <p>LangGraph &amp; LangChain · Ollama · Llama 3.1 / Qwen2.5 / Mistral · Pydantic · NeMo Guardrails / Guardrails-AI · Llama Guard · Microsoft Presidio · Open Policy Agent · Langfuse · FastAPI · Kafka / Redpanda · PostgreSQL + pgvector · Qdrant · Redis · MinIO · OpenSearch · Kong / Apache APISIX · Keycloak · HashiCorp Vault · Kubernetes · Helm · Terraform · Prometheus · Grafana · OpenTelemetry.</p>
+    </section>
+
+
+    <div class="contact">
+      <span class="eyebrow">Get in touch</span>
+      <h3>Interested in working with us?</h3>
+      <p>For business inquiries about this proposal, share a few details and we'll open a message addressed to you.</p>
+      <form class="contact-form" onsubmit="return sendInquiry(event)">
+        <div>
+          <label for="c-name">Name</label>
+          <input id="c-name" type="text" required placeholder="Jane Doe">
+        </div>
+        <div>
+          <label for="c-org">Organisation</label>
+          <input id="c-org" type="text" placeholder="Acme Corp">
+        </div>
+        <div>
+          <label for="c-desig">Designation</label>
+          <input id="c-desig" type="text" placeholder="VP Engineering">
+        </div>
+        <div class="contact-actions">
+          <button type="submit" class="send">Send Inquiry</button>
+        </div>
+      </form>
+      <div class="or">or email us directly</div>
+      <a class="mail" href="mailto:mdineshkumar2416@gmail.com">mdineshkumar2416@gmail.com</a>
+    </div>
+    <script>
+      function sendInquiry(e){
+        e.preventDefault();
+        var name = document.getElementById('c-name').value.trim();
+        var org = document.getElementById('c-org').value.trim();
+        var desig = document.getElementById('c-desig').value.trim();
+        var subject = 'Business inquiry — Enterprise MAS Loan Approval report';
+        var body = 'Name: ' + name + '\nOrganisation: ' + org + '\nDesignation: ' + desig + '\n\n';
+        window.location.href = 'mailto:mdineshkumar2416@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+        return false;
+      }
+    </script>
+
+    <footer class="end">Enterprise Multi-Agent Decision Support System for Loan Approval — Design Report</footer>
+  </main>
+</div>
+
+</body>
+</html>
