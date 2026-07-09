@@ -59,6 +59,10 @@
   .tag{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line);border-radius:3px;color:var(--text-dim);}
   .cover h1{font-size:2.3rem;line-height:1.15;margin:0 0 14px;}
   .cover p.lede{font-size:1.08rem;color:var(--text-dim);margin:0;}
+  .contributors{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;margin-top:24px;}
+  .contributors .eyebrow{margin-right:2px;}
+  .contributors ul{list-style:none;display:flex;flex-wrap:wrap;gap:6px 10px;margin:0;padding:0;font-family:var(--font-mono);font-size:.82rem;color:var(--text-dim);}
+  .contributors li:not(:last-child)::after{content:"·";margin-left:10px;color:var(--line);}
 
   section{margin-bottom:58px;scroll-margin-top:24px;}
   section > .eyebrow{display:block;margin-bottom:6px;}
@@ -237,6 +241,16 @@
       </div>
       <h1>Enterprise Multi-Agent Decision Support System for Loan Approval</h1>
       <p class="lede">A design report: six specialised agents — orchestrator, document verification, credit assessment, risk assessment, loan decision, and human review — coordinated by LangGraph, served on self-hosted open-source models via Ollama, built to run in production at a scale of 1M applications a year.</p>
+      <div class="contributors">
+        <span class="eyebrow">Contributors</span>
+        <ul>
+          <li>Dinesh Kumar M</li>
+          <li>Snehil Tripathi</li>
+          <li>Om Soni</li>
+          <li>Vaishnavi Singh</li>
+          <li>Animish Tiwari</li>
+        </ul>
+      </div>
     </header>
 
     <section id="s1">
